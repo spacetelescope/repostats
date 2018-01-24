@@ -51,9 +51,9 @@ def MakeSummaryPage(data=[], outpage=""):
             data.addColumn("string", "Package Name");
             data.addColumn("string", "Version");
             data.addColumn("string", "Repository Link");
-            data.addColumn("string", "Release Information / CHANGES ");
-            data.addColumn("string", "Last Released");
-            data.addColumn("string", "Release Author")
+            data.addColumn("string", "Release Information");
+            data.addColumn("string", "Last Released / Changed");
+            data.addColumn("string", "Author")
             data.addRows([
     '''
     html.write(b)
@@ -222,7 +222,8 @@ def CheckForRelease(repos="", name=""):
     """Check for release information, not all repos may have releases.
 
     Repositories without release information may have tag information
-    that is used instead
+    that is used instead. If no tages or releases information from the
+    last commit is used.
     """
     print("Checking latest information for: {}".format(name))
     rel_url = repos + ("{0:s}/releases/latest".format(name))
@@ -241,14 +242,18 @@ def CheckForRelease(repos="", name=""):
             jdata['html_url'] = jdata['commit']['url']
             jdata['tag_name'] = jdata['name']
             jdata['name'] = name
-            # check the commits url for more information
+            more_data = GetAPIData(url=jdata['commit']['url'])
+            jdata['author'] = {'login': more_data["author"]["login"],
+                               'html_url': more_data["author"]["html_url"]}
+            jdata['published_at'] = more_data["commit"]["author"]["date"]
+        else:
+            # not even tag information, get last commit information
+            jdata = {'name': name}
             more_data = GetAPIData(url=commit_url)
             more_data = more_data.pop(0)
             jdata['author'] = {'login': more_data["author"]["login"],
                                'html_url': more_data["author"]["html_url"]}
             jdata['published_at'] = more_data["commit"]["author"]["date"]
-        else:
-            jdata = {'name': name}
 
     return jdata
 
