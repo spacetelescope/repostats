@@ -6,7 +6,7 @@ Here's an example use:
 
         In [1]: import release
 
-        In [2]: data=release.GetAllReleases('spacetelescope',limit=20)
+        In [2]: data=release.get_all_releases('spacetelescope',limit=20)
         Examining https://api.github.com/orgs/spacetelescope/repos?per_page=20....
         Checking latest information for: PyFITS
         Checking latest information for: scientific-python-training-2012
@@ -29,6 +29,6 @@ Here's an example use:
         Checking latest information for: cubeviz
         Checking latest information for: imgeom
 
-        In [3]: test=release.MakeSummaryPage(data,'spacetelescope.html')
+        In [3]: test=release.make_summary_page(data,'spacetelescope.html')
         Saving to spacetelescope.html
         Checking for older html file before writing spacetelescope.html
