@@ -53,7 +53,13 @@ def MakeSummaryPage(data=[], outpage=""):
             data.addColumn("string", "Repository Link");
             data.addColumn("string", "Release Information");
             data.addColumn("string", "Last Released / Changed");
-            data.addColumn("string", "Author")
+            data.addColumn("string", "Author");
+            data.addColumn("string", "Open Issues");
+            data.addColumn("string", "Forks");
+            data.addColumn("string", "Watchers");
+            data.addColumn("string", "License")
+
+
             data.addRows([
     '''
     html.write(b)
@@ -77,9 +83,14 @@ def MakeSummaryPage(data=[], outpage=""):
         author_page = repo['author_page']
         if author_page == "N/A":
             author_page = repo['base_url']
+        issues = repo['open_issues']
+        forks = repo['forks']
+        watchers = repo['watchers']
+        license = repo['license']
 
-        html.write("[\"{}\",\"{}\",\'<a href=\"{}\">{}</a>\',{}{}{},\"{}\",\'<a href=\"{}\">{}</a>\'],\n".format(
-                   software, version, website, "Code Repository", chr(96), descrip, chr(96), date, author_page, author))
+        html.write("[\"{}\",\"{}\",\'<a href=\"{}\">{}</a>\',{}{}{},\"{}\",\'<a href=\"{}\">{}</a>\',\"{}\",\"{}\",\"{}\",\"{}\"],\n".format(
+                    software, version, website, "Code Repository", chr(96), descrip, chr(96), date, author_page, author,
+                    issues, forks, watchers, license))
 
     ee = '''  ]);
     var table = new google.visualization.Table(document.getElementById("table_div"));
@@ -198,14 +209,26 @@ def GetAllReleases(org="", limit=10):
     # This usu means there was a problem
     if 'message' in results:
         print(results['message'])
-    repo_names = []
+
+    # no account for orgs without repos
     if len(results) > 0:
-        for repo in results:
-            repo_names.append(repo['name'])
+        repo_data = []
+        for i in results:
+            repo_names = {}
+            repo_names['name'] = i['name']
+            repo_names['open_issues'] = i['open_issues']
+            repo_names['watchers'] = i['watchers_count']
+            try:
+                repo_names['license'] = i['license']['spdx_id']
+            except TypeError:
+                repo_names['license'] = 'None'
+            repo_names['forks'] = i['forks_count']
+            repo_data.append(repo_names)
+
     # Loop through all the repositories to get release information
-    # Repositories may have multiple releases
     repo_releases = []
-    for name in repo_names:
+    for rep in repo_data:
+        name = rep['name']
         data = CheckForRelease(repos_url, name)  # returns a list of results
         # expand the release information into separate dicts
         relspecs = GetReleaseSpecs(data)
@@ -213,6 +236,10 @@ def GetAllReleases(org="", limit=10):
         relspecs['base_url'] = "https://github.com/{0:s}/{1:s}/".format(org, name)
         if relspecs['website'] == 'Missing':
             relspecs['website'] = relspecs['base_url']
+        relspecs['open_issues'] = rep['open_issues']
+        relspecs['watchers'] = rep['watchers']
+        relspecs['license'] = rep['license']
+        relspecs['forks'] = rep['forks']
         repo_releases.append(relspecs)
 
     return repo_releases
@@ -225,10 +252,11 @@ def CheckForRelease(repos="", name=""):
     that is used instead. If no tages or releases information from the
     last commit is used.
     """
-    print("Checking latest information for: {}".format(name))
     rel_url = repos + ("{0:s}/releases/latest".format(name))
     tags_url = repos + ("{0:s}/tags".format(name))
     commit_url = repos + ("{0:s}/commits".format(name))
+
+    print("Checking latest information for: {0:s} at {1:s}".format(name, rel_url))
 
     jdata = GetAPIData(url=rel_url)
 
