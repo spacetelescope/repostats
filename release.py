@@ -15,7 +15,7 @@ import urllib3.contrib.pyopenssl
 import certifi
 
 
-def MakeSummaryPage(data=[], outpage=""):
+def make_summary_page(data=[], outpage=""):
     """Make a summary HTML page from a list of repos with release information.
 
     Data should be a list of dictionaries
@@ -69,7 +69,7 @@ def MakeSummaryPage(data=[], outpage=""):
         software = repo['repo_name']
         version = repo['version']
         if repo['release_notes'] != 'Missing':
-            descrip = RenderHTML(repo['release_notes'])
+            descrip = render_html(repo['release_notes'])
         else:
             changes_url = "{0:s}/blob/master/CHANGES.rst".format(repo['base_url'])
             response = http.request('GET', changes_url)
@@ -103,7 +103,7 @@ def MakeSummaryPage(data=[], outpage=""):
     <br><br>
     <p align="left">
     Missing Version means no release or tag was found for the repository.<br>
-    If there hasn't been a github release or tag commmit then no author will be found and that field will be N/A
+    If there hasn't been any github release or tag  then the information is taken from the last commit to that repository
     </p>
     <div id="table_div"></div>
     </body>
@@ -113,7 +113,7 @@ def MakeSummaryPage(data=[], outpage=""):
     html.close()
 
 
-def RenderHTML(md=""):
+def render_html(md=""):
     """Turn markdown string into beautiful soup structure."""
     if not md:
         return ValueError("Supply a string with markdown")
@@ -121,7 +121,7 @@ def RenderHTML(md=""):
     return m
 
 
-def GetAPIData(url=""):
+def get_api_data(url=""):
     """Return the JSON load from the request."""
     buffer = BytesIO()
     c = pycurl.Curl()
@@ -133,7 +133,7 @@ def GetAPIData(url=""):
     return json.loads(res)  # list of dicts
 
 
-def GetReleaseSpecs(data=None):
+def get_release_specs(data=None):
     """parse out the release information from the json object.
 
     This assumes data is a dictionary and makes standard dict entries
@@ -178,7 +178,7 @@ def GetReleaseSpecs(data=None):
     return specs
 
 
-def ReadResponseFile(response=""):
+def read_response_file(response=""):
     """Read a JSON response file."""
     if not response:
         raise ValueError("Please specify json file to read")
@@ -187,7 +187,7 @@ def ReadResponseFile(response=""):
     return data
 
 
-def GetAllReleases(org="", limit=10):
+def get_all_releases(org="", limit=10):
     """Get the release information for all repositories in an organization.
 
     Returns a list of dictionaries with information on each repository
@@ -204,7 +204,7 @@ def GetAllReleases(org="", limit=10):
     print("Examining {0:s}....".format(orgrepo_url))
 
     # Get a list of the repositories
-    results = GetAPIData(url=orgrepo_url)
+    results = get_api_data(url=orgrepo_url)
 
     # This usu means there was a problem
     if 'message' in results:
@@ -229,9 +229,9 @@ def GetAllReleases(org="", limit=10):
     repo_releases = []
     for rep in repo_data:
         name = rep['name']
-        data = CheckForRelease(repos_url, name)  # returns a list of results
+        data = check_for_release(repos_url, name)  # returns a list of results
         # expand the release information into separate dicts
-        relspecs = GetReleaseSpecs(data)
+        relspecs = get_release_specs(data)
         relspecs['repo_name'] = name
         relspecs['base_url'] = "https://github.com/{0:s}/{1:s}/".format(org, name)
         if relspecs['website'] == 'Missing':
@@ -245,7 +245,7 @@ def GetAllReleases(org="", limit=10):
     return repo_releases
 
 
-def CheckForRelease(repos="", name=""):
+def check_for_release(repos="", name=""):
     """Check for release information, not all repos may have releases.
 
     Repositories without release information may have tag information
@@ -258,11 +258,11 @@ def CheckForRelease(repos="", name=""):
 
     print("Checking latest information for: {0:s} at {1:s}".format(name, rel_url))
 
-    jdata = GetAPIData(url=rel_url)
+    jdata = get_api_data(url=rel_url)
 
     # no release information ,check tags
     if 'message' in jdata.keys():
-        jdata = GetAPIData(url=tags_url)
+        jdata = get_api_data(url=tags_url)
         if 'message' in jdata:
             print(jdata['message'])
         if len(jdata) >= 1:
@@ -270,14 +270,14 @@ def CheckForRelease(repos="", name=""):
             jdata['html_url'] = jdata['commit']['url']
             jdata['tag_name'] = jdata['name']
             jdata['name'] = name
-            more_data = GetAPIData(url=jdata['commit']['url'])
+            more_data = get_api_data(url=jdata['commit']['url'])
             jdata['author'] = {'login': more_data["author"]["login"],
                                'html_url': more_data["author"]["html_url"]}
             jdata['published_at'] = more_data["commit"]["author"]["date"]
         else:
             # not even tag information, get last commit information
             jdata = {'name': name}
-            more_data = GetAPIData(url=commit_url)
+            more_data = get_api_data(url=commit_url)
             more_data = more_data.pop(0)
             jdata['author'] = {'login': more_data["author"]["login"],
                                'html_url': more_data["author"]["html_url"]}
@@ -290,7 +290,7 @@ if __name__ == "__main__":
     """Create and example output from just the test repository."""
 
     url = "https://api.github.com/repos/sosey/repo-summary/releases"
-    test = GetAPIData(url=url)
-    specs = GetReleaseSpecs(test.pop())  # just send in the one dict
+    test = get_api_data(url=url)
+    specs = get_release_specs(test.pop())  # just send in the one dict
     specs['name'] = 'repo-summary'
-    MakeSummaryPage([specs], 'repo-release_summary.html')
+    make_summary_page([specs], 'repo-release_summary.html')
