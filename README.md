@@ -32,3 +32,6 @@ Here's an example use:
         In [3]: test=release.make_summary_page(data,'spacetelescope.html')
         Saving to spacetelescope.html
         Checking for older html file before writing spacetelescope.html
+
+
+View the example HTML output page: [spacetelescope](https://htmlpreview.github.io/?https://github.com/sosey/repo-summary/blob/master/spacetelescope.html)
