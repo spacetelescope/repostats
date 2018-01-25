@@ -110,7 +110,7 @@ def make_summary_page(data=[], outpage=""):
     </p><br>
     Last Updated: '''
 
-    page += ("{0:s} <br><br> <div id='table_div'></div></body></html>".format(strftime("%a, %d %b %Y %H:%M:%S", gmtime())))
+    page += ("{0:s} GMT<br><br> <div id='table_div'></div></body></html>".format(strftime("%a, %d %b %Y %H:%M:%S", gmtime())))
     html.write(page)
     html.close()
 
@@ -189,7 +189,7 @@ def read_response_file(response=""):
     return data
 
 
-def get_all_releases(org="", limit=10):
+def get_all_releases(org="", limit=10, repos=[]):
     """Get the release information for all repositories in an organization.
 
     Returns a list of dictionaries with information on each repository
@@ -205,8 +205,13 @@ def get_all_releases(org="", limit=10):
     repos_url = "https://api.github.com/repos/{0:s}/".format(org)
     print("Examining {0:s}....".format(orgrepo_url))
 
-    # Get a list of the repositories
-    results = get_api_data(url=orgrepo_url)
+    # Get a list of the repositories, watch rate limiting
+    if len(repos) == 0:
+        results = get_api_data(url=orgrepo_url)
+    else:
+        results = []
+        for r in repos:
+            results.append(get_api_data(url=repos_url+r))
 
     # This usu means there was a problem
     if 'message' in results:
