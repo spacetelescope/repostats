@@ -13,6 +13,7 @@ from io import BytesIO
 import urllib3
 import urllib3.contrib.pyopenssl
 import certifi
+from time import gmtime, strftime
 
 
 def make_summary_page(data=[], outpage=""):
@@ -38,9 +39,9 @@ def make_summary_page(data=[], outpage=""):
     # this section includes the javascript code and google calls for the
     # interactive features (table sorting)
 
-    b = '''
+    header = '''
     <html>
-      <head>  <title>Github Organization Package Release Information </title>
+      <head>  <title>Github Organization Package Summary Information </title>
        <meta charset="utf-8">
         <script type="text/javascript" src="https://www.google.com/jsapi"></script>
         <script type="text/javascript">
@@ -54,15 +55,15 @@ def make_summary_page(data=[], outpage=""):
             data.addColumn("string", "Release Information");
             data.addColumn("string", "Last Released / Changed");
             data.addColumn("string", "Author");
-            data.addColumn("string", "Open Issues");
-            data.addColumn("string", "Forks");
-            data.addColumn("string", "Watchers");
+            data.addColumn("number", "Open Issues");
+            data.addColumn("number", "Forks");
+            data.addColumn("number", "Watchers");
             data.addColumn("string", "License")
 
 
             data.addRows([
     '''
-    html.write(b)
+    html.write(header)
 
     for repo in data:
         # below is the google table code
@@ -88,11 +89,11 @@ def make_summary_page(data=[], outpage=""):
         watchers = repo['watchers']
         license = repo['license']
 
-        html.write("[\"{}\",\"{}\",\'<a href=\"{}\">{}</a>\',{}{}{},\"{}\",\'<a href=\"{}\">{}</a>\',\"{}\",\"{}\",\"{}\",\"{}\"],\n".format(
+        html.write("[\"{}\",\"{}\",\'<a href=\"{}\">{}</a>\',{}{}{},\"{}\",\'<a href=\"{}\">{}</a>\',{},{},{},\"{}\"],\n".format(
                     software, version, website, "Code Repository", chr(96), descrip, chr(96), date, author_page, author,
                     issues, forks, watchers, license))
 
-    ee = '''  ]);
+    page = '''  ]);
     var table = new google.visualization.Table(document.getElementById("table_div"));
     table.draw(data, {showRowNumber: true, allowHtml: true});
     }
@@ -102,14 +103,15 @@ def make_summary_page(data=[], outpage=""):
     <br><p align="center" size=10pt>Click on the column fields to sort </p>
     <br><br>
     <p align="left">
-    Missing Version means no release or tag was found for the repository.<br>
-    If there hasn't been any github release or tag  then the information is taken from the last commit to that repository
-    </p>
-    <div id="table_div"></div>
-    </body>
-    </html>
-    '''
-    html.write(ee)
+    <ul>
+    <li>Missing Version means no release or tag was found for the repository.<br>
+    <li>If there hasn't been any github release or tag  then the information is taken from the last commit to that repository
+    </ul>
+    </p><br>
+    Last Updated: '''
+
+    page += ("{0:s} <br><br> <div id='table_div'></div></body></html>".format(strftime("%a, %d %b %Y %H:%M:%S", gmtime())))
+    html.write(page)
     html.close()
 
 
@@ -208,7 +210,7 @@ def get_all_releases(org="", limit=10):
 
     # This usu means there was a problem
     if 'message' in results:
-        print(results['message'])
+        print(results)
 
     # no account for orgs without repos
     if len(results) > 0:
@@ -256,7 +258,7 @@ def check_for_release(repos="", name=""):
     tags_url = repos + ("{0:s}/tags".format(name))
     commit_url = repos + ("{0:s}/commits".format(name))
 
-    print("Checking latest information for: {0:s} at {1:s}".format(name, rel_url))
+    print("Checking latest information for: {0:s}".format(name))
 
     jdata = get_api_data(url=rel_url)
 
@@ -265,6 +267,7 @@ def check_for_release(repos="", name=""):
         jdata = get_api_data(url=tags_url)
         if 'message' in jdata:
             print(jdata['message'])
+            raise ValueError
         if len(jdata) >= 1:
             jdata = jdata.pop(0)  # get the assumed latest
             jdata['html_url'] = jdata['commit']['url']
