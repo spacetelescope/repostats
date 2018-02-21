@@ -1,7 +1,10 @@
 
     <html>
       <head>
-        <style type="text/css">
+       <title>Github Organization Package Summary Information </title>
+
+       <meta name="viewport" charset="utf-8" content="width=device-width, initial-scale=1.0">
+       <style type="text/css">
             table
             {
                 width: 1200px;
@@ -60,8 +63,6 @@
                 text-align: center;
             }
         </style>
-       <title>Github Organization Package Summary Information </title>
-       <meta name="viewport" charset="utf-8" content="width=device-width, initial-scale=1">
         <script type="text/javascript" src="https://www.google.com/jsapi"></script>
         <script type="text/javascript">
           google.load("visualization", "1", {packages:["table"]});
@@ -74,22 +75,25 @@
             data.addColumn("string", "Release Information");
             data.addColumn("string", "Last Released / Changed");
             data.addColumn("string", "Author");
+            data.addColumn("string", "Travis-CI");
+            data.addColumn("string", "RTD-latest");
             data.addColumn("number", "Open Issues");
             data.addColumn("number", "Forks");
             data.addColumn("number", "Stars");
             data.addColumn("string", "License")
 
+
             data.addRows([
     ["PyFITS","3.5",'<a href="https://github.com/spacetelescope/PyFITS/releases/tag/3.5">Code Repository</a>',`<p>This is the last release ever. Importing this package now gives deprecation warning. Please use <code>astropy.io.fits</code>.</p>
-`,"2017-12-18T20:19:39Z",'<a href="https://github.com/pllim">pllim</a>',0,13,19,"BSD-3-Clause"],
-["scientific-python-training-2012","Missing",'<a href="https://github.com/spacetelescope/scientific-python-training-2012/">Code Repository</a>',`No CHANGES.rst file, see repository`,"2015-01-07T20:15:07Z",'<a href="https://github.com/perrygreenfield">perrygreenfield</a>',0,9,22,"None"],
+`,"2017-12-18T20:19:39Z",'<a href="https://github.com/pllim">pllim</a>','<img src="https://img.shields.io/travis/spacetelescope/PyFITS.svg">','<img src="https://readthedocs.org/projects/PyFITS/badge/?version=latest">',0,13,19,"None"],
+["scientific-python-training-2012","Missing",'<a href="https://github.com/spacetelescope/scientific-python-training-2012/">Code Repository</a>',`No CHANGES.rst file, see repository`,"2015-01-07T20:15:07Z",'<a href="https://github.com/perrygreenfield">perrygreenfield</a>','<img src="https://img.shields.io/travis/spacetelescope/scientific-python-training-2012.svg">','<img src="https://readthedocs.org/projects/scientific-python-training-2012/badge/?version=latest">',0,9,22,"None"],
 ["synphot_refactor","0.1",'<a href="https://github.com/spacetelescope/synphot_refactor/releases/tag/0.1">Code Repository</a>',`<p>This is the first non-beta release and also the last release to support Python 2.</p>
-`,"2018-01-19T22:03:41Z",'<a href="https://github.com/pllim">pllim</a>',9,5,18,"None"],
+`,"2018-01-19T22:03:41Z",'<a href="https://github.com/pllim">pllim</a>','<img src="https://img.shields.io/travis/spacetelescope/synphot_refactor.svg">','<img src="https://readthedocs.org/projects/synphot_refactor/badge/?version=latest">',11,5,19,"None"],
 ["stsynphot_refactor","0.1",'<a href="https://github.com/spacetelescope/stsynphot_refactor/releases/tag/0.1">Code Repository</a>',`<p>This is the first non-beta release and also the last release to support Python 2.</p>
-`,"2018-01-19T22:02:55Z",'<a href="https://github.com/pllim">pllim</a>',5,2,2,"None"],
-["understanding-json-schema","Missing",'<a href="https://github.com/spacetelescope/understanding-json-schema/">Code Repository</a>',`No CHANGES.rst file, see repository`,"2016-12-21T17:15:24Z",'<a href="https://github.com/mdboom">mdboom</a>',16,140,783,"BSD-3-Clause"],
-["asdf","v1.3.1",'<a href="https://api.github.com/repos/spacetelescope/asdf/commits/93d796bb44d3df8b6131d8560aeaca32471b8719">Code Repository</a>',`'<a href="https://github.com/spacetelescope/asdf//blob/master/CHANGES.rst">Link to package CHANGES</a>'`,"2017-11-03T15:43:45Z",'<a href="https://github.com/drdavella">drdavella</a>',46,27,50,"None"],
-["asdf-standard","v1.0.0",'<a href="https://api.github.com/repos/spacetelescope/asdf-standard/commits/4ceda981a72db5fc262e694f7ac7a3e8a3ad3e2f">Code Repository</a>',`No CHANGES.rst file, see repository`,"2015-09-18T18:49:25Z",'<a href="https://github.com/mdboom">mdboom</a>',19,13,31,"BSD-3-Clause"],
+`,"2018-01-19T22:02:55Z",'<a href="https://github.com/pllim">pllim</a>','<img src="https://img.shields.io/travis/spacetelescope/stsynphot_refactor.svg">','<img src="https://readthedocs.org/projects/stsynphot_refactor/badge/?version=latest">',9,2,2,"None"],
+["understanding-json-schema","Missing",'<a href="https://github.com/spacetelescope/understanding-json-schema/">Code Repository</a>',`No CHANGES.rst file, see repository`,"2016-12-21T17:15:24Z",'<a href="https://github.com/mdboom">mdboom</a>','<img src="https://img.shields.io/travis/spacetelescope/understanding-json-schema.svg">','<img src="https://readthedocs.org/projects/understanding-json-schema/badge/?version=latest">',16,149,801,"BSD-3-Clause"],
+["asdf","v1.3.1",'<a href="https://api.github.com/repos/spacetelescope/asdf/commits/93d796bb44d3df8b6131d8560aeaca32471b8719">Code Repository</a>',`'<a href="https://github.com/spacetelescope/asdf//blob/master/CHANGES.rst">Link to package CHANGES</a>'`,"2017-11-03T15:43:45Z",'<a href="https://github.com/drdavella">drdavella</a>','<img src="https://img.shields.io/travis/spacetelescope/asdf.svg">','<img src="https://readthedocs.org/projects/asdf/badge/?version=latest">',45,27,52,"None"],
+["asdf-standard","v1.0.0",'<a href="https://api.github.com/repos/spacetelescope/asdf-standard/commits/4ceda981a72db5fc262e694f7ac7a3e8a3ad3e2f">Code Repository</a>',`No CHANGES.rst file, see repository`,"2015-09-18T18:49:25Z",'<a href="https://github.com/mdboom">mdboom</a>','<img src="https://img.shields.io/travis/spacetelescope/asdf-standard.svg">','<img src="https://readthedocs.org/projects/asdf-standard/badge/?version=latest">',19,13,31,"BSD-3-Clause"],
 ["imexam","0.8.0",'<a href="https://github.com/spacetelescope/imexam/releases/tag/0.8.0">Code Repository</a>',`<ul>
 <li>fixed show_xpa_commands bug sending None instead of empty string
 to the xpa library</li>
@@ -106,42 +110,9 @@ a.close()
 </code></pre>
 </li>
 </ul>
-`,"2017-11-06T20:29:18Z",'<a href="https://github.com/sosey">sosey</a>',15,20,32,"None"],
-["spherical_geometry","v1.0.6",'<a href="https://api.github.com/repos/spacetelescope/spherical_geometry/commits/5dafdea69184f982a6f1e6bf0464245839d9c394">Code Repository</a>',`No CHANGES.rst file, see repository`,"2016-03-15T17:24:40Z",'<a href="https://github.com/bernie-simon">bernie-simon</a>',11,11,12,"None"],
-["astronomy-resources","Missing",'<a href="https://github.com/spacetelescope/astronomy-resources/">Code Repository</a>',`No CHANGES.rst file, see repository`,"2015-07-06T14:32:32Z",'<a href="https://github.com/sosey">sosey</a>',1,1,1,"BSD-3-Clause"],
-["github-issues-import","v1.1",'<a href="https://api.github.com/repos/spacetelescope/github-issues-import/commits/ac067e3c830b98839651cb77e7eada2ab9ddf230">Code Repository</a>',`No CHANGES.rst file, see repository`,"2013-10-29T09:03:13Z",'<a href="https://github.com/IQAndreas">IQAndreas</a>',0,1,2,"BSD-3-Clause"],
-["drizzle","v1.1",'<a href="https://api.github.com/repos/spacetelescope/drizzle/commits/1b57896cef0d6f71f21f1f84ee87bf38f6ec563b">Code Repository</a>',`No CHANGES.rst file, see repository`,"2016-03-16T20:55:02Z",'<a href="https://github.com/bernie-simon">bernie-simon</a>',2,7,5,"None"],
-["scientific-python-training-2015","Missing",'<a href="https://github.com/spacetelescope/scientific-python-training-2015/">Code Repository</a>',`No CHANGES.rst file, see repository`,"2015-04-06T17:49:34Z",'<a href="https://github.com/perrygreenfield">perrygreenfield</a>',0,7,18,"None"],
-["gwcs","0.8.0",'<a href="https://github.com/spacetelescope/gwcs/releases/tag/0.8.0">Code Repository</a>',`<p>Changes:</p>
-<ul>
-<li><p><code>LabelMapperRange</code> now returns <code>LabelMapperRange._no_label</code> when the key is
-not within any range. [#71]</p>
-</li>
-<li><p><code>LabelMapperDict</code> now returns <code>LabelMapperDict._no_label</code> when the key does
-not match. [#72]</p>
-</li>
-<li><p>Replaced <code>domain</code> with <code>bounding_box</code>. [#74]</p>
-</li>
-<li><p>Added a <code>LabelMapper</code> model where <code>mapper</code> is an instance of
-<code>~astropy.modeling.core.Model</code>. [#78]</p>
-</li>
-<li><p>Evaluating a WCS with bounding box was moved to <code>astropy.modeling</code>. [#86]</p>
-</li>
-<li><p>RegionsSelector now handles the case when a label does not have a corresponding
-transform and returns RegionsSelector.undefined_transform_value. [#86]</p>
-</li>
-<li><p>GWCS now deals with axes types which are neither celestial nor spectral as "unknown"
-and creates a transform equivalent to the FITS linear transform. [#92]</p>
-</li>
-</ul>
-`,"2017-11-03T19:46:54Z",'<a href="https://github.com/nden">nden</a>',24,21,6,"None"],
-["specview","v0.1",'<a href="https://api.github.com/repos/spacetelescope/specview/commits/a3072d59b785c9b88769d16a9f60935e587d1b78">Code Repository</a>',`No CHANGES.rst file, see repository`,"2015-04-28T15:35:49Z",'<a href="https://github.com/stscieisenhamer">stscieisenhamer</a>',27,6,6,"None"],
-["astroimtools","v0.1.1",'<a href="https://github.com/spacetelescope/astroimtools/releases/tag/v0.1.1">Code Repository</a>',`<p>Added cutout helper tools (moved over from MOSViz) and example notebooks.</p>
-`,"2016-10-22T02:02:09Z",'<a href="https://github.com/pllim">pllim</a>',11,5,3,"None"],
-["yaml-schema-standard","Missing",'<a href="https://github.com/spacetelescope/yaml-schema-standard/">Code Repository</a>',`No CHANGES.rst file, see repository`,"2015-08-20T19:31:59Z",'<a href="https://github.com/embray">embray</a>',0,0,1,"BSD-3-Clause"],
-["UserTraining2015","Missing",'<a href="https://github.com/spacetelescope/UserTraining2015/">Code Repository</a>',`No CHANGES.rst file, see repository`,"2015-05-07T12:32:39Z",'<a href="https://github.com/perrygreenfield">perrygreenfield</a>',1,4,2,"None"],
-["cubeviz","0.0.1",'<a href="https://github.com/spacetelescope/cubeviz/releases/tag/0.0.1">Code Repository</a>',`Supply a string with markdown`,"2016-08-03T15:22:50Z",'<a href="https://github.com/justincely">justincely</a>',67,15,0,"None"],
-["imgeom","Missing",'<a href="https://github.com/spacetelescope/imgeom/">Code Repository</a>',`No CHANGES.rst file, see repository`,"2016-07-13T17:52:27Z",'<a href="https://github.com/larrybradley">larrybradley</a>',0,3,1,"None"],
+`,"2017-11-06T20:29:18Z",'<a href="https://github.com/sosey">sosey</a>','<img src="https://img.shields.io/travis/spacetelescope/imexam.svg">','<img src="https://readthedocs.org/projects/imexam/badge/?version=latest">',14,20,32,"None"],
+["spherical_geometry","v1.0.6",'<a href="https://api.github.com/repos/spacetelescope/spherical_geometry/commits/5dafdea69184f982a6f1e6bf0464245839d9c394">Code Repository</a>',`No CHANGES.rst file, see repository`,"2016-03-15T17:24:40Z",'<a href="https://github.com/bernie-simon">bernie-simon</a>','<img src="https://img.shields.io/travis/spacetelescope/spherical_geometry.svg">','<img src="https://readthedocs.org/projects/spherical_geometry/badge/?version=latest">',11,12,12,"None"],
+["astronomy-resources","Missing",'<a href="https://github.com/spacetelescope/astronomy-resources/">Code Repository</a>',`No CHANGES.rst file, see repository`,"2015-07-06T14:32:32Z",'<a href="https://github.com/sosey">sosey</a>','<img src="https://img.shields.io/travis/spacetelescope/astronomy-resources.svg">','<img src="https://readthedocs.org/projects/astronomy-resources/badge/?version=latest">',1,1,1,"BSD-3-Clause"],
   ]);
     var cssClassNames = {
                     'headerRow': 'cssHeaderRow',
@@ -153,19 +124,18 @@ and creates a transform equivalent to the FITS linear transform. [#92]</p>
                     'tableCell': 'cssTableCell',
                     'rowNumberCell': 'cssRowNumberCell'
                 };
-                
     var table = new google.visualization.Table(document.getElementById("table_div"));
     table.draw(data, {showRowNumber: true, allowHtml: true, cssClassNames: cssClassNames,});
     }
     </script>
     </head>
-    <body><br>
+    <body>
     <br><p align="center" size=10pt>Click on the column fields to sort </p>
-    <br><br>
-    <p align="left">
+    <br>
+    <p align="left" size=10pt>
     <ul>
     <li>Missing Version means no release or tag was found for the repository.<br>
     <li>If there hasn't been any github release or tag  then the information is taken from the last commit to that repository
     </ul>
     </p><br>
-    Last Updated: Thu, 25 Jan 2018 01:34:50 <br><br> <div id='table_div'></div></body></html>
+    Last Updated: Wed, 21 Feb 2018 06:43:38 GMT<br><br> <div id='table_div'></div></body></html>

@@ -118,6 +118,8 @@ def make_summary_page(data=[], outpage="repository_summary.html"):
             data.addColumn("string", "Release Information");
             data.addColumn("string", "Last Released / Changed");
             data.addColumn("string", "Author");
+            data.addColumn("string", "Travis-CI");
+            data.addColumn("string", "RTD-latest");
             data.addColumn("number", "Open Issues");
             data.addColumn("number", "Forks");
             data.addColumn("number", "Stars");
@@ -151,10 +153,13 @@ def make_summary_page(data=[], outpage="repository_summary.html"):
         forks = repo['forks']
         stars = repo['stars']
         license = repo['license']
+        travis = ("https://img.shields.io/travis/{0:s}/{1:s}.svg".format(repo['organization'],
+                                                                         software))
+        rtd = ("https://readthedocs.org/projects/{0:s}/badge/?version=latest".format(software))
 
-        html.write("[\"{}\",\"{}\",\'<a href=\"{}\">{}</a>\',{}{}{},\"{}\",\'<a href=\"{}\">{}</a>\',{},{},{},\"{}\"],\n".format(
+        html.write("[\"{}\",\"{}\",\'<a href=\"{}\">{}</a>\',{}{}{},\"{}\",\'<a href=\"{}\">{}</a>\',\'<img src=\"{}\">\',\'<img src=\"{}\">\',{},{},{},\"{}\"],\n".format(
                     software, version, website, "Code Repository", chr(96), descrip, chr(96), date, author_page, author,
-                    issues, forks, stars, license))
+                    travis, rtd, issues, forks, stars, license))
 
     page = '''  ]);
     var cssClassNames = {
@@ -172,10 +177,10 @@ def make_summary_page(data=[], outpage="repository_summary.html"):
     }
     </script>
     </head>
-    <body><br>
+    <body>
     <br><p align="center" size=10pt>Click on the column fields to sort </p>
-    <br><br>
-    <p align="left">
+    <br>
+    <p align="left" size=10pt>
     <ul>
     <li>Missing Version means no release or tag was found for the repository.<br>
     <li>If there hasn't been any github release or tag  then the information is taken from the last commit to that repository
@@ -343,6 +348,7 @@ def get_all_releases(org="", limit=10, repos=[]):
         repo_data = []
         for i in results:
             repo_names = {}
+            repo_names['organization'] = org
             repo_names['name'] = i['name']
             repo_names['open_issues'] = i['open_issues']
             repo_names['stars'] = i['stargazers_count']
@@ -368,6 +374,7 @@ def get_all_releases(org="", limit=10, repos=[]):
         relspecs['stars'] = rep['stars']
         relspecs['license'] = rep['license']
         relspecs['forks'] = rep['forks']
+        relspecs['organization'] = rep['organization']
         repo_releases.append(relspecs)
 
     return repo_releases
@@ -429,10 +436,10 @@ def check_for_release(repos="", name=""):
 
 
 if __name__ == "__main__":
-    """Create an example output from just the test repository."""
+    """Create an example output from the test repository."""
 
-    url = "https://api.github.com/repos/spacetelescope/asdf/releases"
+    url = "https://api.github.com/repos/sosey/repo-summary/releases"
     test = get_api_data(url=url)
     specs = get_release_specs(test.pop())  # just send in the one dict
-    specs['name'] = 'asdf'
-    make_summary_page([specs], 'asdf-repo-summary.html')
+    specs['name'] = 'repo-summary'
+    make_summary_page([specs], 'repo-summary.html')
