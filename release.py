@@ -1,34 +1,36 @@
 """
-Get the package release information for a specific organization
+Library functions that help summarize
+the package repository information for a
+specific github organization
 
-# SSLError: Can't connect to HTTPS URL because the SSL module is not available.
-# using pycurl for now as an example
 """
+from __future__ import print_function, division, absolute_import
 
+import os
 import json
 import mistune
-import os
-import pycurl
-from io import BytesIO
 import urllib3
 import urllib3.contrib.pyopenssl
 import certifi
 from time import gmtime, strftime
 
 
-def make_summary_page(data=[], outpage=""):
-    """Make a summary HTML page from a list of repos with release information.
+def make_summary_page(data=[], outpage="repository_summary.html"):
+    """Make a summary HTML page from a list of repositories in the organization.
 
-    Data should be a list of dictionaries
+    Parameters
+    ----------
+    data: list[dict{}]
+        a list of dictionaries
+    outpage: string
+        the name of the output html page
+
     """
     urllib3.contrib.pyopenssl.inject_into_urllib3()
     http = urllib3.PoolManager(cert_reqs='CERT_REQUIRED', ca_certs=certifi.where())
 
     if not isinstance(data, list):
         raise TypeError("Expected data to be a list of dictionaries")
-    if not outpage:
-        outpage = ("repository_summary.html")
-    print("Saving to {0:s}".format(outpage))
 
     # print them to a web page we can display for ourselves,
     print("Checking for older html file before writing {0:s}".format(outpage))
@@ -41,8 +43,69 @@ def make_summary_page(data=[], outpage=""):
 
     header = '''
     <html>
-      <head>  <title>Github Organization Package Summary Information </title>
-       <meta charset="utf-8">
+      <head>
+       <title>Github Organization Package Summary Information </title>
+
+       <meta name="viewport" charset="utf-8" content="width=device-width, initial-scale=1.0">
+       <style type="text/css">
+            table
+            {
+                width: 1200px;
+                border-collapse: collapse;
+            }
+
+            thead
+            {
+                width: 1200px;
+                overflow: auto;
+                color: #fff;
+                background: #000;
+            }
+            tbody
+            {
+                overflow: auto;
+            }
+            th,td
+            {
+                padding: .5em 1em;
+                text-align: left;
+                vertical-align: top;
+                border-left: 1px solid #fff;
+            }
+            .cssHeaderRow {
+                background-color: #2A94D6;
+                top: 10px;
+                overflow: auto;
+            }
+            .cssHeaderCell {
+                color: #FFFFFF;
+                background-color: #2A94D6;
+                font-size: 14px;
+                padding: 6px !important;
+                border: solid 1px #FFFFFF;
+            }
+            .cssTableRow {
+                background-color: #F0F1F2;
+            }
+            .cssOddTableRow {
+                background-color: #F0F1F2;
+            }
+            .cssSelectedTableRow {
+                font-size: 20px;
+                font-weight: bold;
+            }
+            .cssHoverTableRow {
+                background: #ccd;
+            }
+            .cssTableCell {
+                font-size: 14px;
+                padding: 10px !important;
+                border: solid 1px #FFFFFF;
+            }
+            .cssRowNumberCell {
+                text-align: center;
+            }
+        </style>
         <script type="text/javascript" src="https://www.google.com/jsapi"></script>
         <script type="text/javascript">
           google.load("visualization", "1", {packages:["table"]});
@@ -57,7 +120,7 @@ def make_summary_page(data=[], outpage=""):
             data.addColumn("string", "Author");
             data.addColumn("number", "Open Issues");
             data.addColumn("number", "Forks");
-            data.addColumn("number", "Watchers");
+            data.addColumn("number", "Stars");
             data.addColumn("string", "License")
 
 
@@ -86,16 +149,26 @@ def make_summary_page(data=[], outpage=""):
             author_page = repo['base_url']
         issues = repo['open_issues']
         forks = repo['forks']
-        watchers = repo['watchers']
+        stars = repo['stars']
         license = repo['license']
 
         html.write("[\"{}\",\"{}\",\'<a href=\"{}\">{}</a>\',{}{}{},\"{}\",\'<a href=\"{}\">{}</a>\',{},{},{},\"{}\"],\n".format(
                     software, version, website, "Code Repository", chr(96), descrip, chr(96), date, author_page, author,
-                    issues, forks, watchers, license))
+                    issues, forks, stars, license))
 
     page = '''  ]);
+    var cssClassNames = {
+                    'headerRow': 'cssHeaderRow',
+                    'tableRow': 'cssTableRow',
+                    'oddTableRow': 'cssOddTableRow',
+                    'selectedTableRow': 'cssSelectedTableRow',
+                    'hoverTableRow': 'cssHoverTableRow',
+                    'headerCell': 'cssHeaderCell',
+                    'tableCell': 'cssTableCell',
+                    'rowNumberCell': 'cssRowNumberCell'
+                };
     var table = new google.visualization.Table(document.getElementById("table_div"));
-    table.draw(data, {showRowNumber: true, allowHtml: true});
+    table.draw(data, {showRowNumber: true, allowHtml: true, cssClassNames: cssClassNames,});
     }
     </script>
     </head>
@@ -116,7 +189,17 @@ def make_summary_page(data=[], outpage=""):
 
 
 def render_html(md=""):
-    """Turn markdown string into beautiful soup structure."""
+    """Turn markdown string into beautiful soup structure.
+
+    Parameters
+    ----------
+    md: string
+        markdown as a string
+
+    Returns
+    -------
+    The translated markdown
+    """
     if not md:
         return ValueError("Supply a string with markdown")
     m = mistune.markdown(md)
@@ -124,20 +207,37 @@ def render_html(md=""):
 
 
 def get_api_data(url=""):
-    """Return the JSON load from the request."""
-    buffer = BytesIO()
-    c = pycurl.Curl()
-    c.setopt(c.URL, url)
-    c.setopt(c.WRITEDATA, buffer)
-    c.perform()
-    c.close()
-    res = buffer.getvalue().decode('iso-8859-1')
-    return json.loads(res)  # list of dicts
+    """Return the JSON load from the request.
+
+    Parameters
+    ----------
+    url: string
+        The url for querry
+
+    Returns
+    -------
+    Returns a json payload response
+    """
+    user_agent = {'user-agent': 'repo-summary-tool'}
+    urllib3.contrib.pyopenssl.inject_into_urllib3()
+    http = urllib3.PoolManager(cert_reqs='CERT_REQUIRED',
+                               ca_certs=certifi.where(),
+                               headers=user_agent)
+    response = http.request('GET', url)
+    return json.loads(response.data.decode('iso-8859-1'))
 
 
 def get_release_specs(data=None):
     """parse out the release information from the json object.
 
+    Parameters
+    ----------
+    data: dict
+        The dictionary of repository information as created by
+        the get_all_releases function
+
+    Notes
+    -----
     This assumes data is a dictionary and makes standard dict entries
     independent of the type of api request
     """
@@ -181,7 +281,17 @@ def get_release_specs(data=None):
 
 
 def read_response_file(response=""):
-    """Read a JSON response file."""
+    """Read a JSON response file.
+
+    Parameters
+    ----------
+    response: string
+        name of the json file to read
+
+    Returns
+    -------
+    The interpreted json file
+    """
     if not response:
         raise ValueError("Please specify json file to read")
     with open(response, 'r') as f:
@@ -192,7 +302,18 @@ def read_response_file(response=""):
 def get_all_releases(org="", limit=10, repos=[]):
     """Get the release information for all repositories in an organization.
 
-    Returns a list of dictionaries with information on each repository
+    Parameters
+    ----------
+    org: string
+        the name of the github organization
+    limit: int
+        the github response rate limit
+    repos: list
+        the list of repository dictionaries
+
+    Returns
+    -------
+    a list of dictionaries with information on each repository
     The github API only returns the first 30 repos by default.
     At most it can return 100 repos at a time. Multiple calls
     need to be made for more.
@@ -211,7 +332,7 @@ def get_all_releases(org="", limit=10, repos=[]):
     else:
         results = []
         for r in repos:
-            results.append(get_api_data(url=repos_url+r))
+            results.append(get_api_data(url=repos_url + r))
 
     # This usu means there was a problem
     if 'message' in results:
@@ -224,7 +345,7 @@ def get_all_releases(org="", limit=10, repos=[]):
             repo_names = {}
             repo_names['name'] = i['name']
             repo_names['open_issues'] = i['open_issues']
-            repo_names['watchers'] = i['watchers_count']
+            repo_names['stars'] = i['stargazers_count']
             try:
                 repo_names['license'] = i['license']['spdx_id']
             except TypeError:
@@ -244,7 +365,7 @@ def get_all_releases(org="", limit=10, repos=[]):
         if relspecs['website'] == 'Missing':
             relspecs['website'] = relspecs['base_url']
         relspecs['open_issues'] = rep['open_issues']
-        relspecs['watchers'] = rep['watchers']
+        relspecs['stars'] = rep['stars']
         relspecs['license'] = rep['license']
         relspecs['forks'] = rep['forks']
         repo_releases.append(relspecs)
@@ -255,6 +376,19 @@ def get_all_releases(org="", limit=10, repos=[]):
 def check_for_release(repos="", name=""):
     """Check for release information, not all repos may have releases.
 
+    Parameters
+    ----------
+    repos: string
+        the url of the repository
+    name: string
+        the name of the repository
+
+    Returns
+    -------
+    list of repository information
+
+    Notes
+    -----
     Repositories without release information may have tag information
     that is used instead. If no tages or releases information from the
     last commit is used.
@@ -267,7 +401,7 @@ def check_for_release(repos="", name=""):
 
     jdata = get_api_data(url=rel_url)
 
-    # no release information ,check tags
+    # no release information, check tags
     if 'message' in jdata.keys():
         jdata = get_api_data(url=tags_url)
         if 'message' in jdata:
@@ -295,10 +429,10 @@ def check_for_release(repos="", name=""):
 
 
 if __name__ == "__main__":
-    """Create and example output from just the test repository."""
+    """Create an example output from just the test repository."""
 
-    url = "https://api.github.com/repos/sosey/repo-summary/releases"
+    url = "https://api.github.com/repos/spacetelescope/asdf/releases"
     test = get_api_data(url=url)
     specs = get_release_specs(test.pop())  # just send in the one dict
-    specs['name'] = 'repo-summary'
-    make_summary_page([specs], 'repo-release_summary.html')
+    specs['name'] = 'asdf'
+    make_summary_page([specs], 'asdf-repo-summary.html')

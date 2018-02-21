@@ -1,7 +1,67 @@
 
     <html>
-      <head>  <title>Github Organization Package Summary Information </title>
-       <meta charset="utf-8">
+      <head>
+        <style type="text/css">
+            table
+            {
+                width: 1200px;
+                border-collapse: collapse;
+            }
+
+            thead
+            {
+                width: 1200px;
+                overflow: auto;
+                color: #fff;
+                background: #000;
+            }
+            tbody
+            {
+                overflow: auto;
+            }
+            th,td
+            {
+                padding: .5em 1em;
+                text-align: left;
+                vertical-align: top;
+                border-left: 1px solid #fff;
+            }
+            .cssHeaderRow {
+                background-color: #2A94D6;
+                top: 10px;
+                overflow: auto;
+            }
+            .cssHeaderCell {
+                color: #FFFFFF;
+                background-color: #2A94D6;
+                font-size: 14px;
+                padding: 6px !important;
+                border: solid 1px #FFFFFF;
+            }
+            .cssTableRow {
+                background-color: #F0F1F2;
+            }
+            .cssOddTableRow {
+                background-color: #F0F1F2;
+            }
+            .cssSelectedTableRow {
+                font-size: 20px;
+                font-weight: bold;
+            }
+            .cssHoverTableRow {
+                background: #ccd;
+            }
+            .cssTableCell {
+                font-size: 14px;
+                padding: 10px !important;
+                border: solid 1px #FFFFFF;
+            }
+            .cssRowNumberCell {
+                text-align: center;
+            }
+        </style>
+       <title>Github Organization Package Summary Information </title>
+       <meta name="viewport" charset="utf-8" content="width=device-width, initial-scale=1">
         <script type="text/javascript" src="https://www.google.com/jsapi"></script>
         <script type="text/javascript">
           google.load("visualization", "1", {packages:["table"]});
@@ -16,9 +76,8 @@
             data.addColumn("string", "Author");
             data.addColumn("number", "Open Issues");
             data.addColumn("number", "Forks");
-            data.addColumn("number", "Watchers");
+            data.addColumn("number", "Stars");
             data.addColumn("string", "License")
-
 
             data.addRows([
     ["PyFITS","3.5",'<a href="https://github.com/spacetelescope/PyFITS/releases/tag/3.5">Code Repository</a>',`<p>This is the last release ever. Importing this package now gives deprecation warning. Please use <code>astropy.io.fits</code>.</p>
@@ -84,8 +143,19 @@ and creates a transform equivalent to the FITS linear transform. [#92]</p>
 ["cubeviz","0.0.1",'<a href="https://github.com/spacetelescope/cubeviz/releases/tag/0.0.1">Code Repository</a>',`Supply a string with markdown`,"2016-08-03T15:22:50Z",'<a href="https://github.com/justincely">justincely</a>',67,15,0,"None"],
 ["imgeom","Missing",'<a href="https://github.com/spacetelescope/imgeom/">Code Repository</a>',`No CHANGES.rst file, see repository`,"2016-07-13T17:52:27Z",'<a href="https://github.com/larrybradley">larrybradley</a>',0,3,1,"None"],
   ]);
+    var cssClassNames = {
+                    'headerRow': 'cssHeaderRow',
+                    'tableRow': 'cssTableRow',
+                    'oddTableRow': 'cssOddTableRow',
+                    'selectedTableRow': 'cssSelectedTableRow',
+                    'hoverTableRow': 'cssHoverTableRow',
+                    'headerCell': 'cssHeaderCell',
+                    'tableCell': 'cssTableCell',
+                    'rowNumberCell': 'cssRowNumberCell'
+                };
+                
     var table = new google.visualization.Table(document.getElementById("table_div"));
-    table.draw(data, {showRowNumber: true, allowHtml: true});
+    table.draw(data, {showRowNumber: true, allowHtml: true, cssClassNames: cssClassNames,});
     }
     </script>
     </head>

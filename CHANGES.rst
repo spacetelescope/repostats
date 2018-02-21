@@ -1,0 +1,2 @@
+- removed pycurl in favor of urllib3
+- updated the CSS styling for the page
