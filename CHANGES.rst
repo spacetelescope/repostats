@@ -1,2 +1,5 @@
+- added travis and readthedocs badges
+- added basic authentication but still needs work, only seeing low rate limit still
+- added astroconda-dev membership
 - removed pycurl in favor of urllib3
 - updated the CSS styling for the page

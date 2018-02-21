@@ -113,6 +113,7 @@ def make_summary_page(data=[], outpage="repository_summary.html"):
           function drawTable() {
             var data = new google.visualization.DataTable();
             data.addColumn("string", "Package Name");
+            data.addColumn("string", "Astroconda-dev");
             data.addColumn("string", "Version");
             data.addColumn("string", "Repository Link");
             data.addColumn("string", "Release Information");
@@ -153,12 +154,13 @@ def make_summary_page(data=[], outpage="repository_summary.html"):
         forks = repo['forks']
         stars = repo['stars']
         license = repo['license']
+        astroconda = repo['astroconda']
         travis = ("https://img.shields.io/travis/{0:s}/{1:s}.svg".format(repo['organization'],
                                                                          software))
         rtd = ("https://readthedocs.org/projects/{0:s}/badge/?version=latest".format(software))
 
-        html.write("[\"{}\",\"{}\",\'<a href=\"{}\">{}</a>\',{}{}{},\"{}\",\'<a href=\"{}\">{}</a>\',\'<img src=\"{}\">\',\'<img src=\"{}\">\',{},{},{},\"{}\"],\n".format(
-                    software, version, website, "Code Repository", chr(96), descrip, chr(96), date, author_page, author,
+        html.write("[\"{}\",\"{}\",\"{}\",\'<a href=\"{}\">{}</a>\',{}{}{},\"{}\",\'<a href=\"{}\">{}</a>\',\'<img src=\"{}\">\',\'<img src=\"{}\">\',{},{},{},\"{}\"],\n".format(
+                    software, astroconda, version, website, "Code Repository", chr(96), descrip, chr(96), date, author_page, author,
                     travis, rtd, issues, forks, stars, license))
 
     page = '''  ]);
@@ -178,7 +180,7 @@ def make_summary_page(data=[], outpage="repository_summary.html"):
     </script>
     </head>
     <body>
-    <br><p align="center" size=10pt>Click on the column fields to sort </p>
+    <br><p align="center" size=10pt>Click on the column header name to sort by that column </p>
     <br>
     <p align="left" size=10pt>
     <ul>
@@ -211,24 +213,33 @@ def render_html(md=""):
     return m
 
 
-def get_api_data(url=""):
+def get_api_data(url="", user=None, token=None):
     """Return the JSON load from the request.
 
     Parameters
     ----------
     url: string
         The url for querry
+    user: string
+        Username to use for basic authentication
+    token: string
+        value password for basic authentication
 
     Returns
     -------
     Returns a json payload response
     """
-    user_agent = {'user-agent': 'repo-summary-tool'}
+    agent = 'repo-summary-tool'
+    if (user is None or token is None):
+        headers = {'user-agent': agent}
+    else:
+        headers = urllib3.util.make_headers(basic_auth='{}:{}'.format(user, token))
+    print(headers)
+
     urllib3.contrib.pyopenssl.inject_into_urllib3()
     http = urllib3.PoolManager(cert_reqs='CERT_REQUIRED',
-                               ca_certs=certifi.where(),
-                               headers=user_agent)
-    response = http.request('GET', url)
+                               ca_certs=certifi.where())
+    response = http.request('GET', url, headers=headers)
     return json.loads(response.data.decode('iso-8859-1'))
 
 
@@ -304,7 +315,7 @@ def read_response_file(response=""):
     return data
 
 
-def get_all_releases(org="", limit=10, repos=[]):
+def get_all_releases(org="", limit=10, user=None, token=None, repos=[]):
     """Get the release information for all repositories in an organization.
 
     Parameters
@@ -332,16 +343,19 @@ def get_all_releases(org="", limit=10, repos=[]):
     print("Examining {0:s}....".format(orgrepo_url))
 
     # Get a list of the repositories, watch rate limiting
+
     if len(repos) == 0:
-        results = get_api_data(url=orgrepo_url)
+        results = get_api_data(url=orgrepo_url, user=user, token=token)
     else:
         results = []
         for r in repos:
-            results.append(get_api_data(url=repos_url + r))
+            results.append(get_api_data(url=repos_url + r, user=user, token=token))
 
     # This usu means there was a problem
     if 'message' in results:
         print(results)
+
+    astroconda_data = _get_astroconda_list()
 
     # no account for orgs without repos
     if len(results) > 0:
@@ -349,6 +363,7 @@ def get_all_releases(org="", limit=10, repos=[]):
         for i in results:
             repo_names = {}
             repo_names['organization'] = org
+            repo_names['astroconda'] = str(get_astroconda_membership(i['name'], astroconda_data))
             repo_names['name'] = i['name']
             repo_names['open_issues'] = i['open_issues']
             repo_names['stars'] = i['stargazers_count']
@@ -375,12 +390,13 @@ def get_all_releases(org="", limit=10, repos=[]):
         relspecs['license'] = rep['license']
         relspecs['forks'] = rep['forks']
         relspecs['organization'] = rep['organization']
+        relspecs['astroconda'] = rep['astroconda']
         repo_releases.append(relspecs)
 
     return repo_releases
 
 
-def check_for_release(repos="", name=""):
+def check_for_release(repos="", name="", user=None, token=None):
     """Check for release information, not all repos may have releases.
 
     Parameters
@@ -406,11 +422,11 @@ def check_for_release(repos="", name=""):
 
     print("Checking latest information for: {0:s}".format(name))
 
-    jdata = get_api_data(url=rel_url)
+    jdata = get_api_data(url=rel_url, user=user, token=token)
 
     # no release information, check tags
     if 'message' in jdata.keys():
-        jdata = get_api_data(url=tags_url)
+        jdata = get_api_data(url=tags_url, user=user, token=token)
         if 'message' in jdata:
             print(jdata['message'])
             raise ValueError
@@ -419,20 +435,56 @@ def check_for_release(repos="", name=""):
             jdata['html_url'] = jdata['commit']['url']
             jdata['tag_name'] = jdata['name']
             jdata['name'] = name
-            more_data = get_api_data(url=jdata['commit']['url'])
+            more_data = get_api_data(url=jdata['commit']['url'], user=user, token=token)
             jdata['author'] = {'login': more_data["author"]["login"],
                                'html_url': more_data["author"]["html_url"]}
             jdata['published_at'] = more_data["commit"]["author"]["date"]
         else:
             # not even tag information, get last commit information
             jdata = {'name': name}
-            more_data = get_api_data(url=commit_url)
+            more_data = get_api_data(url=commit_url, user=user, token=token)
             more_data = more_data.pop(0)
             jdata['author'] = {'login': more_data["author"]["login"],
                                'html_url': more_data["author"]["html_url"]}
             jdata['published_at'] = more_data["commit"]["author"]["date"]
 
     return jdata
+
+
+def _get_astroconda_list():
+    """return the list of astroconda packages."""
+    astroconda_url = "https://api.github.com/repos/astroconda/astroconda-dev/contents"
+
+    # Get the list of packages, which is just the directory listing
+    return get_api_data(astroconda_url)
+
+
+def get_astroconda_membership(name="", data=""):
+    """Return whether the repo is a member of the astroconda release.
+
+    Parameters
+    ----------
+    name: string
+        name of the repository
+    data: list
+        The list of the packages in astroconda repository
+
+    Returns
+    -------
+    status: boolean
+        True if the repository is included in astroconda-dev
+
+    Notes
+    -----
+    Done this way so that the call to get the list can be made separately
+    from the membership decision.
+
+    Based on the return results for the contents entry
+    """
+    for item in data:
+        if (item['html_url'].split("/")[-1] == name):
+            return True
+    return False
 
 
 if __name__ == "__main__":
