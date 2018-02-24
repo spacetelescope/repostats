@@ -168,6 +168,7 @@ def _set_table_column_names(names=None):
 
     if names is None:
         names = OrderedDict([("Package Name", "string"),
+                             ("Archived", "string"),
                              ("Astroconda-dev", "string"),
                              ("Version", "string"),
                              ("Pulse", "string"),
@@ -238,6 +239,7 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
     # create the table rows for each repository entry
     for repo in repo_data:
         software = repo['name']
+        archived = repo['archived']
         print(software)
         url = repo['html_url']
         issues = repo['open_issues_count']
@@ -282,26 +284,28 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
             descrip = render_html(repo['release_info']['body'])
 
         html_string = ("[\'<a href=\"{}\">{}</a>\',"
-                        "\"{}\","
-                        "\"{}\","
-                        "\'<a href=\"{}\">{}</a><br><br>"
-                        "<a href=\"{}\">{}</a>\',"
-                        "{}{}{},"
-                        "\"{}\","
-                        "\'<a href=\"{}\">{}</a>\',"
-                        "\'<img src=\"{}\">\',\'<img src=\"{}\">\',"
-                        "{},{},{},{},{},{},"
-                        "\"{}\"],\n".format(url, software,
-                                             astroconda,
-                                             rtcname,
-                                             pulse_month, "Month Stats",
-                                             pulse_week, "Week Stats",
-                                             chr(96), descrip, chr(96),
-                                             date,
-                                             author_url, author,
-                                             travis, rtd,
-                                             issues, prs, commit_week, commit_month, forks, stars,
-                                             license))
+                       "\"{}\","
+                       "\"{}\","
+                       "\"{}\","
+                       "\'<a href=\"{}\">{}</a><br><br>"
+                       "<a href=\"{}\">{}</a>\',"
+                       "{}{}{},"
+                       "\"{}\","
+                       "\'<a href=\"{}\">{}</a>\',"
+                       "\'<img src=\"{}\">\',\'<img src=\"{}\">\',"
+                       "{},{},{},{},{},{},"
+                       "\"{}\"],\n".format(url, software,
+                                           archived,
+                                           astroconda,
+                                           rtcname,
+                                           pulse_month, "Month Stats",
+                                           pulse_week, "Week Stats",
+                                           chr(96), descrip, chr(96),
+                                           date,
+                                           author_url, author,
+                                           travis, rtd,
+                                           issues, prs, commit_week, commit_month, forks, stars,
+                                           license))
         html.write(html_string)
 
     page = '''  ]);
