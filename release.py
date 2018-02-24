@@ -177,6 +177,9 @@ def _set_table_column_names(names=None):
                              ("Travis-CI", "string"),
                              ("RTD-latest", "string"),
                              ("Open Issues", "number"),
+                             ("Open PRs", "number"),
+                             ("Commits/week", "number"),
+                             ("Commits/month", "number"),
                              ("Forks", "number"),
                              ("Stars", "number"),
                              ("License", "string")])
@@ -240,6 +243,12 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
         issues = repo['open_issues_count']
         forks = repo['forks_count']
         stars = repo['stargazers_count']
+        # commits
+        commit_week = np.sum(repo["statistics"]['weekly_commits']['all'][-1])
+        commit_month = np.sum(repo["statistics"]['weekly_commits']['all'][-4])
+        # PRs
+        prs = len(repo["statistics"]['open_pulls'])
+
         if repo['license'] is None:
             license = "None Found"
         else:
@@ -272,17 +281,16 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
             author_url = repo['release_info']['author']['html_url']
             descrip = render_html(repo['release_info']['body'])
 
-        
         html_string = ("[\'<a href=\"{}\">{}</a>\',"
                         "\"{}\","
                         "\"{}\","
                         "\'<a href=\"{}\">{}</a><br><br>"
                         "<a href=\"{}\">{}</a>\',"
-                        "{},{},{},"
+                        "{}{}{},"
                         "\"{}\","
                         "\'<a href=\"{}\">{}</a>\',"
                         "\'<img src=\"{}\">\',\'<img src=\"{}\">\',"
-                        "{},{},{},"
+                        "{},{},{},{},{},{},"
                         "\"{}\"],\n".format(url, software,
                                              astroconda,
                                              rtcname,
@@ -292,7 +300,7 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
                                              date,
                                              author_url, author,
                                              travis, rtd,
-                                             issues, forks, stars,
+                                             issues, prs, commit_week, commit_month, forks, stars,
                                              license))
         html.write(html_string)
 
@@ -394,7 +402,7 @@ def get_statistics(org="", name=""):
     # information on all open issues
     all_issues = "https://api.github.com/repos/{0:s}/{1:s}/issues?state=open".format(org, name)
     response = get_api_data(all_issues)
-    stats['all_issues'] = response
+    stats['open_issues'] = response
 
     return stats
 
@@ -418,8 +426,7 @@ def print_text_summary(stats=None):
     prs = len(stats['open_pulls'])
 
     # open issues
-    open_issues = [i for i in stats['all_issues'] if i['state'] == 'open']
-    oi = len(open_issues)
+    open_issues = len(stats['open_issues'])
 
     # print to screen
     print("\nReport for {0:s}".format(': '.join(stats['all_issues'][0]['repository_url'].split("/")[-2:])))
