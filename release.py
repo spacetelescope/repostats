@@ -252,44 +252,76 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
         issues = repo['open_issues_count']
         forks = repo['forks_count']
         stars = repo['stargazers_count']
-        # commits
-        commit_week = np.sum(repo["statistics"]['weekly_commits']['all'][-1])
-        commit_month = np.sum(repo["statistics"]['weekly_commits']['all'][-4])
-        # PRs
-        prs = len(repo["statistics"]['open_pulls'])
+        if not (repo['release_info'] == 'empty'):
+            # commits
+            if repo["statistics"]['weekly_commits']['all']:
+                commit_week = np.sum(repo["statistics"]['weekly_commits']['all'][-1])
+                commit_month = np.sum(repo["statistics"]['weekly_commits']['all'][-4])
+            # PRs
+            prs = len(repo["statistics"]['open_pulls'])
+            pulse_month = _pulse_month.format(repo['organization'], software)
+            pulse_week = _pulse_week.format(repo['organization'], software)
+        else:
+            commit_week = 0
+            commit_month = 0
+            prs = 0
 
+        travis = _travis_base.format(repo['organization'], software)
+        rtd = _rtd_base.format(software)
         if repo['license'] is None:
             license = "None Found"
         else:
             license = repo['license']['spdx_id']
         astroconda_contrib = repo['astroconda-rel']
         astroconda_dev = repo['astroconda-dev']
-        travis = _travis_base.format(repo['organization'], software)
-        rtd = _rtd_base.format(software)
-        pulse_month = _pulse_month.format(repo['organization'], software)
-        pulse_week = _pulse_week.format(repo['organization'], software)
 
         # now the variable ones
-        if repo['release_info'] is None:
-            if ((repo['tag_info'] is None) or (not repo['tag_info'])):
-                rtcname = "latest commit"
-                date = repo['commit_info']['commit']['author']['date']
-                author = repo['commit_info']['commit']['author']['name']
-                author_url = "http://github.com/{0:s}".format(author)
-                descrip = render_html(repo['commit_info']['commit']['message']).strip()
-            else:
-                rtcname = repo['tag_info'][-1]['name']  # most recent
-                date = repo['tag_info'][-1]['commit_info']['commit']['author']['date']
-                author = repo['tag_info'][-1]['commit_info']['author']['login']
-                author_url = repo['tag_info'][-1]['commit_info']['author']['html_url']
-                descrip = render_html(repo['tag_info'][-1]['commit_info']['commit']['message'])
-
+        if repo['release_info'] == 'empty':
+            rtcname = 'empty'
+            date = 'N/A'
+            author = 'N/A'
+            author_url = 'N/A'
+            descrip = 'N/A'
         else:
-            rtcname = repo['release_info']['name']
-            date = repo['release_info']['created_at']
-            author = repo['release_info']['author']['login']
-            author_url = repo['release_info']['author']['html_url']
-            descrip = render_html(repo['release_info']['body'])
+            if repo['release_info'] is None:
+                if ((repo['tag_info'] is None) or (not repo['tag_info'])):
+                    rtcname = "latest commit"
+                    if repo['commit_info']:
+                        date = repo['commit_info']['commit']['author']['date']
+                        try:
+                            author = repo['commit_info']['author']['login']
+                        except TypeError:
+                            author = repo['commit_info']['commit']['author']['name']
+                        author_url = "http://github.com/{0:s}".format(author)
+                        descrip = render_html(repo['commit_info']['commit']['message']).strip()
+                    else:
+                        date = 'N/A'
+                        author = 'N/A'
+                        author_url = 'N/A'
+                        descrip = 'N/A'
+                else:
+                    print(repo['name'])
+                    rtcname = repo['tag_info'][-1]['name']  # most recent
+                    try:
+                        date = repo['tag_info'][-1]['commit_info']['commit']['author']['date']
+                    except TypeError:
+                        date = "N/A"
+                    try:
+                        author = repo['tag_info'][-1]['commit_info']['author']['login']
+                    except:
+                        author = "N/A"
+                    try:
+                        author_url = repo['tag_info'][-1]['commit_info']['author']['html_url']
+                    except TypeError:
+                        author_url = "http://github.com/{0:s}".format(author)
+                    descrip = render_html(repo['tag_info'][-1]['commit_info']['commit']['message'])
+
+            else:
+                rtcname = repo['release_info']['name']
+                date = repo['release_info']['created_at']
+                author = repo['release_info']['author']['login']
+                author_url = repo['release_info']['author']['html_url']
+                descrip = render_html(repo['release_info']['body'])
 
         html_string = ("[\'<a href=\"{}\">{}</a>\',"
                        "\"{}\","
@@ -380,7 +412,10 @@ def get_api_data(url=""):
     except urllib3.exceptions.NewConnectionError:
         raise OSError('Connection to GitHub failed.')
 
-    if '200' not in response.getheaders()['status']:
+    status = response.getheaders()['status']
+    if '200' not in status:
+        if '409 Conflict' in status:
+            return ["empty"]
         return None
     else:
         data = json.loads(response.data.decode('iso-8859-1'))
