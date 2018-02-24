@@ -170,6 +170,7 @@ def _set_table_column_names(names=None):
         names = OrderedDict([("Package Name", "string"),
                              ("Archived", "string"),
                              ("Astroconda-dev", "string"),
+                             ("Astroconda-contrib", "string"),
                              ("Version", "string"),
                              ("Pulse", "string"),
                              ("Release Information", "string"),
@@ -199,6 +200,12 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
         a dictionary of the table column names and their google types
     outpage: string (optional)
         the name of the output html file
+
+    Notes
+    -----
+    This function is currently eant to work with the default list of colums,
+    a new function could be coded to create a page with different columns.
+    This one may be edited in the future to be more general.
 
     """
     if not isinstance(repo_data, list):
@@ -255,7 +262,8 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
             license = "None Found"
         else:
             license = repo['license']['spdx_id']
-        astroconda = repo['astroconda']
+        astroconda_contrib = repo['astroconda-rel']
+        astroconda_dev = repo['astroconda-dev']
         travis = _travis_base.format(repo['organization'], software)
         rtd = _rtd_base.format(software)
         pulse_month = _pulse_month.format(repo['organization'], software)
@@ -287,6 +295,7 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
                        "\"{}\","
                        "\"{}\","
                        "\"{}\","
+                       "\"{}\","
                        "\'<a href=\"{}\">{}</a><br><br>"
                        "<a href=\"{}\">{}</a>\',"
                        "{}{}{},"
@@ -296,7 +305,8 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
                        "{},{},{},{},{},{},"
                        "\"{}\"],\n".format(url, software,
                                            archived,
-                                           astroconda,
+                                           astroconda_contrib,
+                                           astroconda_dev,
                                            rtcname,
                                            pulse_month, "Month Stats",
                                            pulse_week, "Week Stats",
@@ -320,7 +330,6 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
     <br>
     <p align="left" size=10pt>
     <ul>
-    <li>Missing Version means no release or tag was found for the repository.<br>
     <li>If there hasn't been any github release or tag  then the information is taken from the last commit to that repository
     </ul>
     </p><br>
@@ -374,7 +383,20 @@ def get_api_data(url=""):
     if '200' not in response.getheaders()['status']:
         return None
     else:
-        return json.loads(response.data.decode('iso-8859-1'))
+        data = json.loads(response.data.decode('iso-8859-1'))
+        # deal with pagination
+        try:
+            links = response.getheaders()['Link'].split(',')
+            if links:
+                next_url = links[0].split(";")[0].strip()[1:-2]
+                total = int(links[1].split(";")[0].strip()[-2]) + 1
+                for i in range(2, total, 1):
+                    url = next_url + str(i)
+                    response = http.request('GET', url, headers=headers, retries=False)
+                    data += json.loads(response.data.decode('iso-8859-1'))
+            return data
+        except KeyError:
+            return data
 
 
 def get_statistics(org="", name=""):
@@ -436,7 +458,7 @@ def print_text_summary(stats=None):
     print("\nReport for {0:s}".format(': '.join(stats['all_issues'][0]['repository_url'].split("/")[-2:])))
     print("Open issues: {:3}\n"
           "Commits in last week: {:3}\n"
-          "Commits in last month: {:3}\n".format(oi, last_week, last_month))
+          "Commits in last month: {:3}\n".format(open_issues, last_week, last_month))
     if prs > 0:
         print("Open Pull Requests: {:3}\n".format(prs))
         print("{:<7}{:<70}{:<22}{:22}".format("Number", "Title", "Created", "Last Updated"))
@@ -503,7 +525,10 @@ def get_all_repositories(org="", limit=10, pub_only=True):
     if pub_only:
         rtype = "public"
     else:
-        rtype = "all"
+        rtype = "all"  # public and private
+
+    if limit > 100:
+        limit = 100  # max supported
 
     print("Getting list of {0:s} repos for {1:s}...".format(rtype, org))
     orgrepo_url = "https://api.github.com/orgs/{0:s}/repos?per_page={1:d}type={2:s}".format(org,
@@ -512,6 +537,7 @@ def get_all_repositories(org="", limit=10, pub_only=True):
     results = get_api_data(url=orgrepo_url)
     if results is None:
         raise ValueError("No repositories found")
+
     names = []
     for repo in results:
         names.append(repo['name'])
@@ -519,7 +545,7 @@ def get_all_repositories(org="", limit=10, pub_only=True):
 
 
 def get_repo_info(org="", limit=10, repos=None, pub_only=True,
-                  astroconda=True, astroconda_flavor="dev"):
+                  astroconda=True):
     """Get the release information for all repositories in an organization.
 
     Parameters
@@ -535,8 +561,6 @@ def get_repo_info(org="", limit=10, repos=None, pub_only=True,
         If False, then the private repositories are also returned
     astroconda: bool
         Check for repo membership in astroconda distribution
-    astroconda_flavor: string
-        Check this flavor of dist (either dev or release)
 
     Returns
     -------
@@ -551,14 +575,21 @@ def get_repo_info(org="", limit=10, repos=None, pub_only=True,
     Limiting the type of repo to return helps users not
     accidentally display private org information publicly
     """
-    flavors = ["dev", "release"]
-
     if not org:
         raise ValueError("Please supply the name of a GitHub organization")
 
     # Get a list of the repositories
-    if ((repos is None) or (not isinstance(repos, list))):
+    if limit > 100:
+        limit = 100  # max allowed
+    if (repos is None):
         repos = get_all_repositories(org, limit=limit, pub_only=pub_only)
+    else:
+        if not isinstance(repos, list):
+            raise TypeError("Expected repos to be list")
+
+    if astroconda:
+        astro_dev = get_astroconda_list(flavor='dev')
+        astro_contrib = get_astroconda_list(flavor='contrib')
 
     repo_data = []
     for r in repos:
@@ -570,11 +601,8 @@ def get_repo_info(org="", limit=10, repos=None, pub_only=True,
             print(repo['name'])
             repo['organization'] = org
             if astroconda:
-                if astroconda_flavor not in flavors:
-                    raise ValueError("No astroconda-{0:s} distribution".format(astroconda_flavor))
-                else:
-                    repo['astroconda'] = str(get_astroconda_membership(repo['name'],
-                                                                       get_astroconda_list()))
+                repo['astroconda-dev'] = str(get_astroconda_membership(repo['name'], astro_dev))
+                repo['astroconda-rel'] = str(get_astroconda_membership(repo['name'], astro_contrib))
             repo['release_info'] = check_for_release(org=org, name=repo['name'], latest=True)
             repo['tag_info'] = check_for_tags(url=repo['tags_url'])
             repo['commit_info'] = check_for_commits(org=org, name=repo['name'], latest=True)
@@ -638,7 +666,7 @@ def check_for_commits(url=None, name=None, org=None, latest=True):
         commit_url = url
 
     results = get_api_data(commit_url)
-    if latest:
+    if latest and results is not None:
         return results[0]
     else:
         return results
@@ -747,8 +775,8 @@ def _sort_list_dict_by(ld_name=None, keyname=None):
 
 def get_astroconda_list(flavor="dev"):
     """return the list of astroconda packages."""
-    if flavor not in ["dev", "release"]:
-        raise ValueError("Only dev and release flavors exist")
+    if flavor not in ["dev", "contrib"]:
+        raise ValueError("Only dev and contrib flavors currently exist")
 
     astroconda_url = "https://api.github.com/repos/astroconda/astroconda-{0:s}/contents".format(flavor)
 
