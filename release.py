@@ -190,6 +190,7 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
     ----------
     repo_data: list[dict{}]
         a list of dictionaries that contains information about each repository
+        as created by get_repo_info()
     columns: OrderedDict (optional)
         a dictionary of the table column names and their google types
     outpage: string (optional)
@@ -223,73 +224,77 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
           google.setOnLoadCallback(drawTable);
           function drawTable() {
             var data = new google.visualization.DataTable();
-
         """
 
     for k, v in columns.items():
         html_string += ('\t\tdata.addColumn(\"{0}\", \"{1}\");\n'.format(v, k))
 
-    html_string += "data.addRows(["
+    html_string += ("\ndata.addRows([")
     html.write(html_string)
 
     # create the table rows for each repository entry
     for repo in repo_data:
         software = repo['name']
-
-        if repo['release_name'] is None:
-            if repo['tag_name'] is None:
-                rtcname = 'None'
-            else:
-                rtcname = repo['tag_name']
+        print(software)
+        url = repo['html_url']
+        issues = repo['open_issues_count']
+        forks = repo['forks_count']
+        stars = repo['stargazers_count']
+        if repo['license'] is None:
+            license = "None Found"
         else:
-            rtcname = repo['release_name']
-            if repo['release_notes'] is not None:
-                descrip = render_html(repo['release_notes'])
-            else:
-                file_url = "{0:s}/blob/master/CHANGES.rst".format(repo['base_url'])
-                response = get_api_data(file_url)
-                if response.status == 200:
-                    descrip = ("\'<a href=\"{0:s}\">Link to package CHANGES</a>\'".format(file_url))
-                else:
-                    descrip = ("No CHANGES file or release notes available")
-
-        url = repo['base_url']
-        date = repo['date']
-        author = repo['author']
-        author_url = repo['author_url']
-        if author_url is None:
-            author_url = repo['base_url']
-        issues = repo['open_issues']
-        forks = repo['forks']
-        stars = repo['stars']
-        license = repo['license']
+            license = repo['license']['spdx_id']
         astroconda = repo['astroconda']
         travis = _travis_base.format(repo['organization'], software)
         rtd = _rtd_base.format(software)
         pulse_month = _pulse_month.format(repo['organization'], software)
         pulse_week = _pulse_week.format(repo['organization'], software)
 
-        html.write("[\'<a href=\"{}\">{}</a>\',"
-                   "\"{}\","
-                   "\"{}\","
-                   "\'<a href=\"{}\">{}</a><br><br>"
-                   "<a href=\"{}\">{}</a>\',"
-                   "{},{},{},"
-                   "\"{}\","
-                   "\'<a href=\"{}\">{}</a>\',"
-                   "\'<img src=\"{}\">\',\'<img src=\"{}\">\',"
-                   "{},{},{},"
-                   "\"{}\"],\n".format(url, software,
-                                       astroconda,
-                                       rtcname,
-                                       pulse_month, "Month Stats",
-                                       pulse_week, "Week Stats",
-                                       chr(96), descrip, chr(96),
-                                       date,
-                                       author_url, author,
-                                       travis, rtd,
-                                       issues, forks, stars,
-                                       license))
+        # now the variable ones
+        if repo['release_info'] is None:
+            if ((repo['tag_info'] is None) or (not repo['tag_info'])):
+                rtcname = "latest commit"
+                date = repo['commit_info']['commit']['author']['date']
+                author = repo['commit_info']['commit']['author']['name']
+                author_url = "http://github.com/{0:s}".format(author)
+                descrip = render_html(repo['commit_info']['commit']['message']).strip()
+            else:
+                rtcname = repo['tag_info'][-1]['name']  # most recent
+                date = repo['tag_info'][-1]['commit_info']['commit']['author']['date']
+                author = repo['tag_info'][-1]['commit_info']['author']['login']
+                author_url = repo['tag_info'][-1]['commit_info']['author']['html_url']
+                descrip = render_html(repo['tag_info'][-1]['commit_info']['commit']['message'])
+
+        else:
+            rtcname = repo['release_info']['name']
+            date = repo['release_info']['created_at']
+            author = repo['release_info']['author']['login']
+            author_url = repo['release_info']['author']['html_url']
+            descrip = render_html(repo['release_info']['body'])
+
+        
+        html_string = ("[\'<a href=\"{}\">{}</a>\',"
+                        "\"{}\","
+                        "\"{}\","
+                        "\'<a href=\"{}\">{}</a><br><br>"
+                        "<a href=\"{}\">{}</a>\',"
+                        "{},{},{},"
+                        "\"{}\","
+                        "\'<a href=\"{}\">{}</a>\',"
+                        "\'<img src=\"{}\">\',\'<img src=\"{}\">\',"
+                        "{},{},{},"
+                        "\"{}\"],\n".format(url, software,
+                                             astroconda,
+                                             rtcname,
+                                             pulse_month, "Month Stats",
+                                             pulse_week, "Week Stats",
+                                             chr(96), descrip, chr(96),
+                                             date,
+                                             author_url, author,
+                                             travis, rtd,
+                                             issues, forks, stars,
+                                             license))
+        html.write(html_string)
 
     page = '''  ]);
 
@@ -309,7 +314,7 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
     </p><br>
     Last Updated: '''
 
-    page += ("{0:s} GMT<br><br> <div id='table_div'></div></body></html>".format(strftime("%a, %d %b %Y %H:%M:%S", gmtime())))
+    page += ("{0:s} GMT<br><br> <div id='table_div'></div>\n</body></html>".format(strftime("%a, %d %b %Y %H:%M:%S", gmtime())))
     html.write(page)
     html.close()
 
@@ -324,7 +329,7 @@ def render_html(md=""):
 
     Returns
     -------
-    The translated markdown -> html 
+    The translated markdown -> html
     """
     if not md:
         return ValueError("Supply a string with markdown")
@@ -338,11 +343,11 @@ def get_api_data(url=""):
     Parameters
     ----------
     url: string
-        The url for querry
+        The url for query
 
     Returns
     -------
-    Returns a json payload response
+    Returns a json payload response or None if it wasn't successful
     """
     headers = {'User-Agent': 'repo-summary-tool'}
     headers['Authorization'] = get_auth()
@@ -354,22 +359,13 @@ def get_api_data(url=""):
     except urllib3.exceptions.NewConnectionError:
         raise OSError('Connection to GitHub failed.')
 
-    # print(response.status)
-    # if response.status != 200:
-    #    message = ("status: {0}\nRate limiting in effect\n"
-    #               "message: {1}\n"
-    #               "responses remaining: {2} of {3}".format(response.status,
-    #                                                        response.message,
-    #                                                        response.headers['X-RateLimit-Remaining'],
-    #                                                        response.headers['X-RateLimit-Limit']))
-    #    raise ValueError(message)
-    if 'message' in response.getheaders().keys():
+    if '200' not in response.getheaders()['status']:
         return None
     else:
         return json.loads(response.data.decode('iso-8859-1'))
 
 
-def get_statistics(org="", repo=""):
+def get_statistics(org="", name=""):
     """Get pulse statistics for the repository.
 
     Parameters
@@ -385,17 +381,18 @@ def get_statistics(org="", repo=""):
     See print_text_stats() to print a simple text report to the screen
     """
     # weekly commits for the whole year
-    weekly_commits = "https://api.github.com/repos/{0:s}/{1:s}/stats/participation".format(org, repo)
+    weekly_commits = "https://api.github.com/repos/{0:s}/{1:s}/stats/participation".format(org,
+                                                                                           name)
     response = get_api_data(weekly_commits)
     stats = {'weekly_commits': response}
 
     # get pull requests that are still open
-    open_pulls = "https://api.github.com/repos/{0:s}/{1:s}/pulls?state=open".format(org, repo)
+    open_pulls = "https://api.github.com/repos/{0:s}/{1:s}/pulls?state=open".format(org, name)
     response = get_api_data(open_pulls)
     stats['open_pulls'] = response
 
-    # information on all issues regardless of state
-    all_issues = "https://api.github.com/repos/{0:s}/{1:s}/issues?state=all".format(org, repo)
+    # information on all open issues
+    all_issues = "https://api.github.com/repos/{0:s}/{1:s}/issues?state=open".format(org, name)
     response = get_api_data(all_issues)
     stats['all_issues'] = response
 
@@ -433,62 +430,10 @@ def print_text_summary(stats=None):
         print("Open Pull Requests: {:3}\n".format(prs))
         print("{:<7}{:<70}{:<22}{:22}".format("Number", "Title", "Created", "Last Updated"))
         for opr in stats['open_pulls']:
-            print("{:<7}{:<70}{:<22}{:22}".format(opr['number'], opr['title'], opr['created_at'], opr['updated_at']))
+            print("{:<7}{:<70}{:<22}{:22}".format(opr['number'], opr['title'],
+                                                  opr['created_at'], opr['updated_at']))
     else:
         print("No open pull requests")
-
-
-def normalize_repo_specs(data=None):
-    """Normalize the collected repository information
-
-    Parameters
-    ----------
-    data: dict
-        The dictionary of repository information as created by
-        the get_repo_info function
-
-    Notes
-    -----
-    This assumes data is a dictionary and makes standard dict entries
-    independent of the type of api request
-    """
-    if ((data is None) or (not isinstance(data, dict))):
-        raise TypeError("Wrong input data type, expected dict")
-
-    specs = {}
-    try:
-        specs['release_notes'] = data['body']
-    except KeyError:
-        # No release notes were formalized so link to the
-        # CHANGES.rst file that should exist.
-        specs['release_notes'] = None
-
-    try:
-        specs['release_name'] = data['release_name']
-    except KeyError:
-        specs['release_name'] = None
-
-    try:
-        specs['tag_name'] = data['tag_name']
-    except KeyError:
-        specs['tag_name'] = None
-    try:
-        specs['date'] = data['published_at']
-    except KeyError:
-        specs['date'] = None
-    try:
-        specs['website'] = data['html_url']
-    except KeyError:
-        specs['website'] = None
-    try:
-        specs['author'] = data['author']['login']
-    except KeyError:
-        specs['author'] = "N/A"
-    try:
-        specs['author_url'] = data['author']['html_url']
-    except KeyError:
-        specs['author_url'] = None
-    return specs
 
 
 def read_response_file(filename=None):
@@ -549,7 +494,7 @@ def get_all_repositories(org="", limit=10, pub_only=True):
     else:
         rtype = "all"
 
-    print("Getting list of all {0:s} for {1:s}...".format(rtype, org))
+    print("Getting list of {0:s} repos for {1:s}...".format(rtype, org))
     orgrepo_url = "https://api.github.com/orgs/{0:s}/repos?per_page={1:d}type={2:s}".format(org,
                                                                                             limit,
                                                                                             rtype)
@@ -611,6 +556,7 @@ def get_repo_info(org="", limit=10, repos=None, pub_only=True,
     if repo_data:
         print("Found {0} repositories".format(len(repo_data)))
         for repo in repo_data:
+            print(repo['name'])
             repo['organization'] = org
             if astroconda:
                 if astroconda_flavor not in flavors:
@@ -618,11 +564,10 @@ def get_repo_info(org="", limit=10, repos=None, pub_only=True,
                 else:
                     repo['astroconda'] = str(get_astroconda_membership(repo['name'],
                                                                        get_astroconda_list()))
-            repo['release_info'] = check_for_release(org=org, name=repo['name'])
+            repo['release_info'] = check_for_release(org=org, name=repo['name'], latest=True)
             repo['tag_info'] = check_for_tags(url=repo['tags_url'])
-            # if there were no tags in the repository, get the latest commit information
-            if not repo['tag_info']:
-                repo['commit_info'] = check_for_commits(org=org, name=repo['name'], latest=True)
+            repo['commit_info'] = check_for_commits(org=org, name=repo['name'], latest=True)
+            repo['statistics'] = get_statistics(org=org, name=repo['name'])
     else:
         raise ValueError("No repositories found")
 
@@ -681,25 +626,28 @@ def check_for_commits(url=None, name=None, org=None, latest=True):
     else:
         commit_url = url
 
+    results = get_api_data(commit_url)
     if latest:
-        commit_url += "/master"
+        return results[0]
+    else:
+        return results
 
-    return get_api_data(commit_url)
 
-
-def check_for_release(url=None, org=None, name=None):
+def check_for_release(url=None, org=None, name=None, latest=True):
     """Check for release information, not all repos may have releases.
 
     Parameters
     ----------
     repos_url: string
-        the url of the repos api
+        the url of the repos release api
     name: string
         the name of the repository
+    latest: bool
+        return the latest release
 
     Returns
     -------
-    list of relese information
+    list of release information if latest is False
 
     Notes
     -----
@@ -713,6 +661,8 @@ def check_for_release(url=None, org=None, name=None):
         if (name is None):
             raise ValueError("Expected repository name")
         rel_url = _rel_url.format(org, name)
+        if latest:
+            rel_url += "/latest"
     else:
         rel_url = url
 
@@ -826,8 +776,7 @@ def get_astroconda_membership(name="", data=""):
 if __name__ == "__main__":
     """Create an example output from the test repository."""
 
-    url = "https://api.github.com/repos/sosey/repo-summary/releases"
-    test = get_api_data(url=url)
-    specs = normalize_repo_specs(test.pop())  # just send in the one dict
-    specs['name'] = 'repo-summary'
-    make_summary_page([specs], 'repo-summary.html')
+    org = 'spacetelescope'
+    name = 'PyFITS'
+    test = get_statistics(org=org, repos=[name])
+    make_summary_page(test, 'repo-summary.html')
