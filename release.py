@@ -17,7 +17,6 @@ from time import gmtime, strftime
 from collections import OrderedDict
 from getpass import getpass, GetPassWarning
 
-
 # some base api urls for reference
 _orgrepo_base = "https://api.github.com/orgs/{0:s}/repos?per_page={1:d}type={2:s}"
 _repo_base = "https://api.github.com/repos/{0:s}/{1:s}"
@@ -183,12 +182,15 @@ def _set_table_column_names(names=None):
                              ("Author", "string"),
                              ("Last Commit","string"),
                              ("Top commits", "string"),
+                             ("Contributors", "number"),
                              ("Travis-CI", "string"),
                              ("RTD-latest", "string"),
                              ("Open Issues", "number"),
+                             ("Closed Issues", "number"),
+                             ("Avg issue time (days)", "number"),
                              ("Open PRs", "number"),
-                             ("Commits/week", "number"),
-                             ("Commits/month", "number"),
+                             ("Commits per week", "number"),
+                             ("Commits per month", "number"),
                              ("Forks", "number"),
                              ("Stars", "number"),
                              ("License", "string")])
@@ -256,11 +258,11 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
         archived = repo['archived']
         print(software)
         url = repo['html_url']
-        issues = repo['open_issues_count']
+        open_issues = repo['open_issues_count']
         forks = repo['forks_count']
         stars = repo['stargazers_count']
 
-        total_contributors = None
+        total_contributors = 0
         if repo['contributors']:
             total_contributors = len(repo['contributors'])
             try:
@@ -282,12 +284,16 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
         commit_week = 0
         commit_month = 0
         prs = 0
+        last_commit = "N/A"
+        avg_issue_time = 0
 
         # record the last commit to the repo
-        if repo['commit_info'] != 'empty':
+        if (repo['commit_info']):
             last_commit = repo['commit_info']['commit']['author']['date']
 
         if repo['statistics']:
+            closed_issues = repo['statistics']['closed_issues_count']
+            avg_issue_time = repo['statistics']['average_issue_time']
             # commits
             if repo['statistics']['weekly_commits']:
                 if len(repo['statistics']['weekly_commits']['all']) > 0:
@@ -315,7 +321,7 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
             astroconda_dev = 'N/A'
 
         # now the variable ones
-        if repo['release_info'] == 'empty':
+        if (repo['release_info']):
             rtcname = 'N/A'
             date = 'N/A'
             author = 'N/A'
@@ -325,7 +331,7 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
             if repo['release_info'] is None:
                 if ((repo['tag_info'] is None) or (not repo['tag_info'])):
                     rtcname = "latest commit"
-                    if repo['commit_info'] != 'empty':
+                    if (repo['commit_info']):
                         date = repo['commit_info']['commit']['author']['date']
                         try:
                             author = repo['commit_info']['author']['login']
@@ -373,9 +379,11 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
                        "\'<a href=\"{}\">{}</a>\',"
                        "\"{}\","
                        "\'{}: {}<br>"
-                        "{}: {}\',"
+                       "{}: {}\',"
+                       "{},"
                        "\'<img src=\"{}\">\',\'<img src=\"{}\">\',"
-                       "{},{},{},{},{},{},"
+                       "{},{},{},"
+                       "{},{},{},{},{},"
                        "\"{}\"],\n".format(url, software,
                                            archived,
                                            astroconda_contrib,
@@ -389,8 +397,10 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
                                            last_commit,
                                            top_commits_name1, top_comitts_com1,
                                            top_commits_name2, top_comitts_com2,
+                                           total_contributors,
                                            travis, rtd,
-                                           issues, prs, commit_week, commit_month, forks, stars,
+                                           open_issues, closed_issues, avg_issue_time,
+                                           prs, commit_week, commit_month, forks, stars,
                                            license))
         html.write(html_string)
 
@@ -402,11 +412,13 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
     </script>
     </head>
     <body>
-    <br><p align="center" size=10pt>Click on the column header name to sort by that column </p>
+    <br><p align="center" size=10pt><strong>Click on the column header name to sort by that column </strong></p>
     <br>
     <p align="left" size=10pt>
     <ul>
     <li>If there hasn't been any github release or tag  then the information is taken from the last commit to that repository
+    <li>The issues count includes PRs becuase the API doesn't separate them, the avg open issue time has been corrected for this.
+    <li>Top contributors are listed for maintenance reference, no relation to quality or size of commits
     </ul>
     </p><br>
     Last Updated: '''
@@ -510,6 +522,26 @@ def get_statistics(org="", name=""):
     all_issues = _all_issues_url.format(org, name)
     response = get_api_data(all_issues)
     stats['all_issues'] = response
+
+    # calculate the average open time for issues, from closed issues
+    closed = [i for i in response if i['state'] == 'closed']
+    stats['closed_issues_count'] = len(closed)
+    
+    avg_time = 0.
+    times = 0.
+    icount = 0.
+    days = 3600.*24.
+    for i in closed:
+        try:
+            i['pull_request']
+        except KeyError:
+            created = parser.parse(i['created_at'])
+            resolved = parser.parse(i['closed_at'])
+            times += (resolved - created).total_seconds()
+            icount += 1
+    if icount:
+        avg_time = times / (days * icount)
+    stats['average_issue_time'] = avg_time  # in days
 
     return stats
 
@@ -637,6 +669,12 @@ def get_all_repositories(org="", limit=10, pub_only=True):
     return names
 
 
+def _chunk_list(listname=None, size=None):
+    """return the list in chunks of size."""
+    for i in range(0, len(listname), size):
+        yield listname[i:i + size]
+
+
 def get_repo_info(org="", limit=10, repos=None, pub_only=True,
                   astroconda=True):
     """Get the release information for all repositories in an organization.
@@ -680,31 +718,45 @@ def get_repo_info(org="", limit=10, repos=None, pub_only=True,
         if not isinstance(repos, list):
             raise TypeError("Expected repos to be list")
 
+    print("Found {0} repositories".format(len(repos)))
+
+    # get summary information for each repo
     repo_data = []
     for r in repos:
-        repo_data.append(get_api_data(_repo_base.format(org, r)))
+        repdata = get_api_data(_repo_base.format(org, r))
+        repdata['organization'] = org
+        repo_data.append(repdata)
+
+    # speed up the large querry
+    for repo in repo_data:
+        print(repo['name'])
+        _querry_for_info(org, repo)
 
     if astroconda:
         astro_dev = get_astroconda_list(flavor='dev')
         astro_contrib = get_astroconda_list(flavor='contrib')
-
-    if repo_data:
-        print("Found {0} repositories".format(len(repo_data)))
         for repo in repo_data:
-            print(repo['name'])
-            repo['organization'] = org
-            if astroconda:
-                repo['astroconda-dev'] = str(get_astroconda_membership(repo['name'], astro_dev))
-                repo['astroconda-rel'] = str(get_astroconda_membership(repo['name'], astro_contrib))
-            repo['release_info'] = check_for_release(org=org, name=repo['name'], latest=True)
-            repo['tag_info'] = check_for_tags(url=repo['tags_url'])
-            repo['commit_info'] = check_for_commits(org=org, name=repo['name'], latest=True)
-            repo['statistics'] = get_statistics(org=org, name=repo['name'])
-            repo['contributors'] = get_contributors(org=org, name=repo['name'])
-    else:
-        raise ValueError("No repositories found")
+            repo['astroconda-dev'] = str(get_astroconda_membership(repo['name'], astro_dev))
+            repo['astroconda-rel'] = str(get_astroconda_membership(repo['name'], astro_contrib))
 
     return repo_data
+
+
+def _querry_for_info(org=None, repo=None):
+    """Make querries for more information on the summary repo_data.
+
+    Paramters
+    ---------
+    repo_data: list[dicts]
+        A list of repositories with basic information
+    """
+    if org is None:
+        raise ValueError("Need name of organization")
+    repo['release_info'] = check_for_release(org=org, name=repo['name'], latest=True)
+    repo['tag_info'] = check_for_tags(org=org, name=repo['name'])
+    repo['commit_info'] = check_for_commits(org=org, name=repo['name'], latest=True)
+    repo['statistics'] = get_statistics(org=org, name=repo['name'])
+    repo['contributors'] = get_contributors(org=org, name=repo['name'])
 
 
 def get_contributors(org=None, name=None):

@@ -1,3 +1,4 @@
+- added number of contributors, closed issues, and avg issue open time to report
 - added date of last commit to all repos
 - added top two committers and the number of commits they have to all repos
 - weekly and monthly commits added
