@@ -19,11 +19,16 @@ from getpass import getpass, GetPassWarning
 
 
 # some base api urls for reference
-_org_base = "https://api.github.com/repos/{0:s}/"
-_repo_base = _org_base + ("{1:s}")
-_rel_url = _org_base + ("{1:s}/releases/latest")  # latest release only
-_tags_url = _org_base + ("{1:s}/tags")  # tags unordered
-_commit_url = _org_base + ("{1:s}/commits")  # all commits
+_orgrepo_base = "https://api.github.com/orgs/{0:s}/repos?per_page={1:d}type={2:s}"
+_repo_base = "https://api.github.com/repos/{0:s}/{1:s}"
+_rel_url = _repo_base + ("/releases/latest")  # latest release only
+_tags_url = _repo_base + ("/tags")  # tags unordered
+_commit_url = _repo_base + ("/commits")  # all commits
+_contributors_url = _repo_base + ("/contributors?anon=1")  # contrib sorted by commit
+_open_pulls_url = _repo_base + ("/pulls?state=open")
+_all_issues_url = _repo_base + ("/issues?state=all&sort=created")
+
+# Non-github addresses
 _travis_base = "https://img.shields.io/travis/{0:s}/{1:s}.svg"
 _rtd_base = "https://readthedocs.org/projects/{0:s}/badge/?version=latest"
 _pulse_month = "https://github.com/{0:s}/{1:s}/pulse/monthly"
@@ -173,9 +178,11 @@ def _set_table_column_names(names=None):
                              ("Astroconda-contrib", "string"),
                              ("Version", "string"),
                              ("Pulse", "string"),
-                             ("Release Information", "string"),
+                             ("Release/Tag/Commit Information", "string"),
                              ("Last Released", "string"),
                              ("Author", "string"),
+                             ("Last Commit","string"),
+                             ("Top commits", "string"),
                              ("Travis-CI", "string"),
                              ("RTD-latest", "string"),
                              ("Open Issues", "number"),
@@ -252,32 +259,64 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
         issues = repo['open_issues_count']
         forks = repo['forks_count']
         stars = repo['stargazers_count']
-        if not (repo['release_info'] == 'empty'):
-            # commits
-            if repo["statistics"]['weekly_commits']['all']:
-                commit_week = np.sum(repo["statistics"]['weekly_commits']['all'][-1])
-                commit_month = np.sum(repo["statistics"]['weekly_commits']['all'][-4])
-            # PRs
-            prs = len(repo["statistics"]['open_pulls'])
-            pulse_month = _pulse_month.format(repo['organization'], software)
-            pulse_week = _pulse_week.format(repo['organization'], software)
-        else:
-            commit_week = 0
-            commit_month = 0
-            prs = 0
 
+        total_contributors = None
+        if repo['contributors']:
+            total_contributors = len(repo['contributors'])
+            try:
+                top_commits_name1 = repo['contributors'][0]['login']
+            except KeyError:
+                top_commits_name1 = repo['contributors'][0]['name']
+            top_comitts_com1 = repo['contributors'][0]['contributions']
+
+            if (total_contributors > 1):
+                try:
+                    top_commits_name2 = repo['contributors'][1]['login']
+                except KeyError:
+                    top_commits_name2 = repo['contributors'][1]['name']
+                top_comitts_com2 = repo['contributors'][1]['contributions']
+            else:
+                top_commits_name2 = 'N/A'
+                top_comitts_com2 = 0
+
+        commit_week = 0
+        commit_month = 0
+        prs = 0
+
+        # record the last commit to the repo
+        if repo['commit_info'] != 'empty':
+            last_commit = repo['commit_info']['commit']['author']['date']
+
+        if repo['statistics']:
+            # commits
+            if repo['statistics']['weekly_commits']:
+                if len(repo['statistics']['weekly_commits']['all']) > 0:
+                    commit_week = np.sum(repo['statistics']['weekly_commits']['all'][-1])
+                    commit_month = np.sum(repo['statistics']['weekly_commits']['all'][-4])
+            # PRs
+            if repo['statistics']['open_pulls']:
+                prs = len(repo['statistics']['open_pulls'])
+
+        pulse_month = _pulse_month.format(repo['organization'], software)
+        pulse_week = _pulse_week.format(repo['organization'], software)
         travis = _travis_base.format(repo['organization'], software)
         rtd = _rtd_base.format(software)
+
         if repo['license'] is None:
             license = "None Found"
         else:
             license = repo['license']['spdx_id']
-        astroconda_contrib = repo['astroconda-rel']
-        astroconda_dev = repo['astroconda-dev']
+
+        try:
+            astroconda_contrib = repo['astroconda-rel']
+            astroconda_dev = repo['astroconda-dev']
+        except KeyError:
+            astroconda_contrib = 'N/A'
+            astroconda_dev = 'N/A'
 
         # now the variable ones
         if repo['release_info'] == 'empty':
-            rtcname = 'empty'
+            rtcname = 'N/A'
             date = 'N/A'
             author = 'N/A'
             author_url = 'N/A'
@@ -286,7 +325,7 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
             if repo['release_info'] is None:
                 if ((repo['tag_info'] is None) or (not repo['tag_info'])):
                     rtcname = "latest commit"
-                    if repo['commit_info']:
+                    if repo['commit_info'] != 'empty':
                         date = repo['commit_info']['commit']['author']['date']
                         try:
                             author = repo['commit_info']['author']['login']
@@ -300,7 +339,6 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
                         author_url = 'N/A'
                         descrip = 'N/A'
                 else:
-                    print(repo['name'])
                     rtcname = repo['tag_info'][-1]['name']  # most recent
                     try:
                         date = repo['tag_info'][-1]['commit_info']['commit']['author']['date']
@@ -333,6 +371,9 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
                        "{}{}{},"
                        "\"{}\","
                        "\'<a href=\"{}\">{}</a>\',"
+                       "\"{}\","
+                       "\'{}: {}<br>"
+                        "{}: {}\',"
                        "\'<img src=\"{}\">\',\'<img src=\"{}\">\',"
                        "{},{},{},{},{},{},"
                        "\"{}\"],\n".format(url, software,
@@ -345,6 +386,9 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
                                            chr(96), descrip, chr(96),
                                            date,
                                            author_url, author,
+                                           last_commit,
+                                           top_commits_name1, top_comitts_com1,
+                                           top_commits_name2, top_comitts_com2,
                                            travis, rtd,
                                            issues, prs, commit_week, commit_month, forks, stars,
                                            license))
@@ -402,7 +446,8 @@ def get_api_data(url=""):
     -------
     Returns a json payload response or None if it wasn't successful
     """
-    headers = {'User-Agent': 'repo-summary-tool'}
+    headers = {'User-Agent': 'repo-summary-tool',
+               'Accept': 'application/vnd.github.v3+json'}
     headers['Authorization'] = get_auth()
     urllib3.contrib.pyopenssl.inject_into_urllib3()
     http = urllib3.PoolManager(cert_reqs='CERT_REQUIRED',
@@ -412,15 +457,16 @@ def get_api_data(url=""):
     except urllib3.exceptions.NewConnectionError:
         raise OSError('Connection to GitHub failed.')
 
-    status = response.getheaders()['status']
+    resp_header = response.getheaders()
+    status = resp_header['status']
     if '200' not in status:
         if '409 Conflict' in status:
-            return ["empty"]
+            print("Conflict, empty repository")
         return None
     else:
         data = json.loads(response.data.decode('iso-8859-1'))
         # deal with pagination
-        try:
+        if 'Link' in resp_header.keys():
             links = response.getheaders()['Link'].split(',')
             if links:
                 next_url = links[0].split(";")[0].strip()[1:-2]
@@ -429,9 +475,7 @@ def get_api_data(url=""):
                     url = next_url + str(i)
                     response = http.request('GET', url, headers=headers, retries=False)
                     data += json.loads(response.data.decode('iso-8859-1'))
-            return data
-        except KeyError:
-            return data
+        return data
 
 
 def get_statistics(org="", name=""):
@@ -452,18 +496,20 @@ def get_statistics(org="", name=""):
     # weekly commits for the whole year
     weekly_commits = "https://api.github.com/repos/{0:s}/{1:s}/stats/participation".format(org,
                                                                                            name)
+
+    # empty = b'{"all":[],"owner":[]}'
     response = get_api_data(weekly_commits)
     stats = {'weekly_commits': response}
 
     # get pull requests that are still open
-    open_pulls = "https://api.github.com/repos/{0:s}/{1:s}/pulls?state=open".format(org, name)
+    open_pulls = _open_pulls_url.format(org, name)
     response = get_api_data(open_pulls)
     stats['open_pulls'] = response
 
     # information on all open issues
-    all_issues = "https://api.github.com/repos/{0:s}/{1:s}/issues?state=open".format(org, name)
+    all_issues = _all_issues_url.format(org, name)
     response = get_api_data(all_issues)
-    stats['open_issues'] = response
+    stats['all_issues'] = response
 
     return stats
 
@@ -487,7 +533,7 @@ def print_text_summary(stats=None):
     prs = len(stats['open_pulls'])
 
     # open issues
-    open_issues = len(stats['open_issues'])
+    open_issues = len([i for i in stats['all_issues'] if i['state'] == 'open'])
 
     # print to screen
     print("\nReport for {0:s}".format(': '.join(stats['all_issues'][0]['repository_url'].split("/")[-2:])))
@@ -525,6 +571,19 @@ def read_response_file(filename=None):
     return data
 
 
+def date_handler(obj):
+    """make datetime object json serializable.
+
+    Notes
+    -----
+    Taken from here: https://tinyurl.com/yd84fqlw
+    """
+    if hasattr(obj, 'isoformat'):
+        return obj.isoformat()
+    else:
+        raise TypeError
+
+
 def write_response_file(data=None, filename=None):
     """Write a json response out to file.
 
@@ -536,10 +595,11 @@ def write_response_file(data=None, filename=None):
     if filename is None:
         filename = "git_response.json"
 
-    if ((data is None) or (not isinstance(data, dict))):
-        raise TypeError("Expected data to be a dictionary")
+    if ((data is None) or (not isinstance(data, list))):
+        raise TypeError("Expected data to be a list")
+
     with open(filename, 'w') as f:
-        json.dump(data, f)
+        json.dump(data, f, default=date_handler)
 
 
 def get_all_repositories(org="", limit=10, pub_only=True):
@@ -566,10 +626,8 @@ def get_all_repositories(org="", limit=10, pub_only=True):
         limit = 100  # max supported
 
     print("Getting list of {0:s} repos for {1:s}...".format(rtype, org))
-    orgrepo_url = "https://api.github.com/orgs/{0:s}/repos?per_page={1:d}type={2:s}".format(org,
-                                                                                            limit,
-                                                                                            rtype)
-    results = get_api_data(url=orgrepo_url)
+    url = _orgrepo_base.format(org, limit, rtype)
+    results = get_api_data(url=url)
     if results is None:
         raise ValueError("No repositories found")
 
@@ -622,13 +680,13 @@ def get_repo_info(org="", limit=10, repos=None, pub_only=True,
         if not isinstance(repos, list):
             raise TypeError("Expected repos to be list")
 
-    if astroconda:
-        astro_dev = get_astroconda_list(flavor='dev')
-        astro_contrib = get_astroconda_list(flavor='contrib')
-
     repo_data = []
     for r in repos:
         repo_data.append(get_api_data(_repo_base.format(org, r)))
+
+    if astroconda:
+        astro_dev = get_astroconda_list(flavor='dev')
+        astro_contrib = get_astroconda_list(flavor='contrib')
 
     if repo_data:
         print("Found {0} repositories".format(len(repo_data)))
@@ -642,10 +700,32 @@ def get_repo_info(org="", limit=10, repos=None, pub_only=True,
             repo['tag_info'] = check_for_tags(url=repo['tags_url'])
             repo['commit_info'] = check_for_commits(org=org, name=repo['name'], latest=True)
             repo['statistics'] = get_statistics(org=org, name=repo['name'])
+            repo['contributors'] = get_contributors(org=org, name=repo['name'])
     else:
         raise ValueError("No repositories found")
 
     return repo_data
+
+
+def get_contributors(org=None, name=None):
+    """return the ranking of contributors in descending order.
+
+    Parameters
+    ----------
+    org: string
+        The name of the organization
+    name: string
+        The name of the repository
+
+    Returns
+    -------
+    List of contributors, ranked in descending order by number of commits
+    """
+    if ((org is None) or (name is None)):
+        raise TypeError("Need strings for org and repository name")
+
+    url = _contributors_url.format(org, name)
+    return get_api_data(url)
 
 
 def check_for_tags(url=None, org=None, name=None):
@@ -853,4 +933,4 @@ if __name__ == "__main__":
     org = 'spacetelescope'
     name = 'PyFITS'
     test = get_statistics(org=org, repos=[name])
-    make_summary_page(test, 'repo-summary.html')
+    make_summary_page(test, outpage='repo-summary.html')

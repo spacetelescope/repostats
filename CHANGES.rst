@@ -1,3 +1,14 @@
+- added date of last commit to all repos
+- added top two committers and the number of commits they have to all repos
+- weekly and monthly commits added
+- PR status added
+- Archived status added
+- function that sends basic text report to the terminal
+- writing of response files available for caching
+    - may be used later for making conditional response calls
+- API calls now look for pagination in the response
+- added OAuth token login for all calls
+- massive refactoring of the code to make it simpler and more modular
 - added travis and readthedocs badges
 - added basic authentication but still needs work, only seeing low rate limit still
 - added astroconda-dev membership
