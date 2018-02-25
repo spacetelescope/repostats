@@ -17,6 +17,7 @@ from time import gmtime, strftime
 from collections import OrderedDict
 from getpass import getpass, GetPassWarning
 
+
 # some base api urls for reference
 _orgrepo_base = "https://api.github.com/orgs/{0:s}/repos?per_page={1:d}type={2:s}"
 _repo_base = "https://api.github.com/repos/{0:s}/{1:s}"
@@ -135,6 +136,7 @@ def _get_html_header():
                 font-size: 14px;
                 padding: 10px !important;
                 border: solid 1px #FFFFFF;
+                background-color: #F0F1F2;
             }
             .cssRowNumberCell {
                 text-align: center;
@@ -407,7 +409,8 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
     page = '''  ]);
 
     var table = new google.visualization.Table(document.getElementById("table_div"));
-    table.draw(data, {showRowNumber: true, allowHtml: true, cssClassNames: cssClassNames,});
+    table.draw(data, {showRowNumber: true, allowHtml: true, frozenColumns: 1,
+                      cssClassNames: cssClassNames, height: "500px"});
     }
     </script>
     </head>
