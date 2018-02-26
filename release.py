@@ -11,6 +11,7 @@ import mistune
 import urllib3
 import urllib3.contrib.pyopenssl
 import certifi
+import datetime
 import numpy as np
 from dateutil import parser
 from time import gmtime, strftime
@@ -179,16 +180,17 @@ def _set_table_column_names(names=None):
                              ("Astroconda-contrib", "string"),
                              ("Version", "string"),
                              ("Pulse", "string"),
-                             ("Release/Tag/Commit Information", "string"),
+                             ("Release/Tag/Commit--Information", "string"),
                              ("Last Released", "string"),
                              ("Author", "string"),
-                             ("Last Commit","string"),
+                             ("Last Commit", "string"),
                              ("Top commits", "string"),
                              ("Contributors", "number"),
                              ("Travis-CI", "string"),
                              ("RTD-latest", "string"),
                              ("Open Issues", "number"),
-                             ("Closed Issues", "number"),
+                             ("Closed Last Week", "number"),
+                             ("Closed Last Month", "number"),
                              ("Avg issue time (days)", "number"),
                              ("Open PRs", "number"),
                              ("Commits per week", "number"),
@@ -294,7 +296,8 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
             last_commit = repo['commit_info']['commit']['author']['date']
 
         if repo['statistics']:
-            closed_issues = repo['statistics']['closed_issues_count']
+            closed_last_week = len(repo['statistics']['closed_last_week'])
+            closed_last_month = len(repo['statistics']['closed_last_month'])
             avg_issue_time = repo['statistics']['average_issue_time']
             # commits
             if repo['statistics']['weekly_commits']:
@@ -385,8 +388,8 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
                        "{},"
                        "\'<img src=\"{}\">\',\'<img src=\"{}\">\',"
                        "{},{},{},"
-                       "{},{},{},{},{},"
-                       "\"{}\"],\n".format(url, software,
+                       "{},{},{},{},"
+                       "{},{},\"{}\"],\n".format(url, software,
                                            archived,
                                            astroconda_contrib,
                                            astroconda_dev,
@@ -401,9 +404,9 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
                                            top_commits_name2, top_comitts_com2,
                                            total_contributors,
                                            travis, rtd,
-                                           open_issues, closed_issues, avg_issue_time,
-                                           prs, commit_week, commit_month, forks, stars,
-                                           license))
+                                           open_issues, closed_last_week, closed_last_month,
+                                           avg_issue_time, prs, commit_week, commit_month,
+                                           forks, stars, license))
         html.write(html_string)
 
     page = '''  ]);
@@ -422,6 +425,7 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
     <li>If there hasn't been any github release or tag  then the information is taken from the last commit to that repository
     <li>The issues count includes PRs becuase the API doesn't separate them, the avg open issue time has been corrected for this.
     <li>Top contributors are listed for maintenance reference, no relation to quality or size of commits
+    <li>RTD-latest: guesses that the docs are named in RTD using the package name, 'unknown', most likely means the RTD docs, if they exist, are not using the GitHub package name
     </ul>
     </p><br>
     Last Updated: '''
@@ -509,8 +513,7 @@ def get_statistics(org="", name=""):
     See print_text_stats() to print a simple text report to the screen
     """
     # weekly commits for the whole year
-    weekly_commits = "https://api.github.com/repos/{0:s}/{1:s}/stats/participation".format(org,
-                                                                                           name)
+    weekly_commits = (_repo_base.format(org, name)) + "stats/participation"
 
     # empty = b'{"all":[],"owner":[]}'
     response = get_api_data(weekly_commits)
@@ -526,14 +529,37 @@ def get_statistics(org="", name=""):
     response = get_api_data(all_issues)
     stats['all_issues'] = response
 
-    # calculate the average open time for issues, from closed issues
-    closed = [i for i in response if i['state'] == 'closed']
+    find_closed_issues(stats)
+
+    return stats
+
+
+def find_closed_issues(stats=None):
+    """calculated closed issue information.
+
+    Parameters
+    ----------
+    stats: dict
+        dictionary of stats
+    """
+
+    if not isinstance(stats, dict):
+        raise TypeError("Expected stats to be a dictionary")
+
+    try:
+        all_issues = stats['all_issues']
+    except:
+        KeyError("Dictionary missing all_issues entry")
+
+    closed = [i for i in all_issues if i['state'] == 'closed']
     stats['closed_issues_count'] = len(closed)
-    
+
+    # The endpoint may also return pull requests in the response.
+    # If an issue is a pull request, the object will include a pull_request key.
     avg_time = 0.
     times = 0.
     icount = 0.
-    days = 3600.*24.
+    days = 3600. * 24.
     for i in closed:
         try:
             i['pull_request']
@@ -546,7 +572,17 @@ def get_statistics(org="", name=""):
         avg_time = times / (days * icount)
     stats['average_issue_time'] = avg_time  # in days
 
-    return stats
+    # calculate the number of issues closed in the last week and month
+    stats['closed_last_week'] = 0
+    stats['closed_last_month'] = 0
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    delta_week = now - datetime.timedelta(7)  # last_week = now - 7 days
+    delta_30 = now - datetime.timedelta(30)
+    closed_last_week = [i for i in closed if parser.parse(i['closed_at']) > delta_week]
+    closed_last_30 = [i for i in closed if parser.parse(i['closed_at']) > delta_30]
+    stats['closed_last_week'] = closed_last_week
+    stats['closed_last_month'] = closed_last_30
 
 
 def print_text_summary(stats=None):
@@ -561,11 +597,18 @@ def print_text_summary(stats=None):
         raise TypeError("Expected stats to be a dictionary")
 
     # commits
-    last_week = np.sum(stats['weekly_commits']['all'][-1])
-    last_month = np.sum(stats['weekly_commits']['all'][-4])
+    if stats['weekly_commits']:
+        last_week = np.sum(stats['weekly_commits']['all'][-1])
+        last_month = np.sum(stats['weekly_commits']['all'][-4])
+    else:
+        last_week = 0
+        last_month = 0
 
     # PRs
-    prs = len(stats['open_pulls'])
+    if stats['open_pulls']:
+        prs = len(stats['open_pulls'])
+    else:
+        prs = 0
 
     # open issues
     open_issues = len([i for i in stats['all_issues'] if i['state'] == 'open'])
