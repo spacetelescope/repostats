@@ -73,7 +73,7 @@ def write_auth():
     headers = urllib3.util.make_headers(basic_auth='{}:{}'.format(user, token))
     with open(filename, 'w') as f:
         f.write(headers['authorization'])
-    os.chmod(filename, 400)
+    os.chmod(filename, 0o400)
 
 
 def _get_html_header():
@@ -467,7 +467,15 @@ def get_api_data(url=""):
     """
     headers = {'User-Agent': 'repo-summary-tool',
                'Accept': 'application/vnd.github.v3+json'}
-    headers['Authorization'] = get_auth()
+
+    # limit read of the auth file
+    if 'Authorization' not in headers.keys():
+        try:
+            headers['Authorization'] = get_auth()
+        except FileNotFoundError:
+            write_auth()
+            headers['Authorization'] = get_auth()
+
     urllib3.contrib.pyopenssl.inject_into_urllib3()
     http = urllib3.PoolManager(cert_reqs='CERT_REQUIRED',
                                ca_certs=certifi.where())
