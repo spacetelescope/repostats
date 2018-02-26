@@ -415,7 +415,7 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
     </script>
     </head>
     <body>
-    <br><p align="center" size=10pt><strong>Click on the column header name to sort by that column </strong></p>
+    <p align="center" size=10pt><strong>Click on the column header name to sort by that column </strong></p>
     <br>
     <p align="left" size=10pt>
     <ul>
