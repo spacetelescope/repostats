@@ -1,8 +1,8 @@
 # repo-summary
 
-This is a rough tool that creates a sortable HTML table that contains a summary of all the repositories for the specified GitHub organization
+This is a library that helps create a sortable HTML table that contains a summary of all the repositories for the specified GitHub organization. It currently requires the user to create a GitHub OAuth token for authentication and to increase the rate limit. 
 
-Here's an example use:
+Here's an example use of the main functionality:
 
         In [1]: import release
 
