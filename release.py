@@ -635,6 +635,7 @@ def write_response_file(data=None, filename=None):
 
     with open(filename, 'w') as f:
         json.dump(data, f, default=date_handler)
+    os.chmod(filename, 400)
 
 
 def get_all_repositories(org="", limit=10, pub_only=True):
