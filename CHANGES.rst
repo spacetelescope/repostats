@@ -1,3 +1,4 @@
+- renamed release to repostats
 - added better octal spec to file readonly, reduced number of reads of auth file
 - added closed issues by month and week, some refactoring, warning about RTD unknown repos
 - added number of contributors, closed issues, and avg issue open time to report
