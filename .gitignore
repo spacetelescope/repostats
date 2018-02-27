@@ -99,3 +99,7 @@ ENV/
 
 # mypy
 .mypy_cache/
+
+# Generated files
+.repo-summary-key
+repo-summary.html
