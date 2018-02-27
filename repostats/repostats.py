@@ -43,7 +43,7 @@ def get_auth():
     -----
     The file stores the b64 hashed information
     """
-    filename = '.repo-summary-key'
+    filename = '.repostats-key'
     try:
         with open(filename, 'r') as f:
             key = f.read().strip()
@@ -63,7 +63,7 @@ def write_auth():
     in a readonly file without displaying the token on the terminal
     """
 
-    filename = '.repo-summary-key'
+    filename = '.repstats-key'
     try:
         user = input("Github username:")
         token = getpass(prompt="Github token:")
@@ -81,7 +81,7 @@ def _get_html_header():
     header = """
         <html>
         <head>
-         <title>Made by repo-summary </title>
+         <title>Made by repostatsy </title>
          <meta name="viewport" charset="utf-8" content="width=device-width, initial-scale=1.0">
          <style type="text/css">
             table
@@ -465,7 +465,7 @@ def get_api_data(url=""):
     -------
     Returns a json payload response or None if it wasn't successful
     """
-    headers = {'User-Agent': 'repo-summary-tool',
+    headers = {'User-Agent': 'repostats-tool',
                'Accept': 'application/vnd.github.v3+json'}
 
     # limit read of the auth file
@@ -1040,4 +1040,4 @@ if __name__ == "__main__":
     org = 'spacetelescope'
     name = 'PyFITS'
     test = get_statistics(org=org, repos=[name])
-    make_summary_page(test, outpage='repo-summary.html')
+    make_summary_page(test, outpage='repostats.html')

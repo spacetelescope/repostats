@@ -1,4 +1,4 @@
-# repo-summary
+# repostats
 
 This is a library that helps create a sortable HTML table that contains a summary of all the repositories for the specified GitHub organization. It currently requires the user to create a GitHub OAuth token for authentication and to increase the rate limit. 
 
@@ -34,4 +34,4 @@ Here's an example use of the main functionality:
         Checking for older html file before writing spacetelescope.html
 
 
-View the example HTML output page: [spacetelescope](https://htmlpreview.github.io/?https://github.com/sosey/repo-summary/blob/master/spacetelescope.html)
+View the example HTML output page: [spacetelescope](https://htmlpreview.github.io/?https://github.com/sosey/repostats/blob/master/spacetelescope.html)
