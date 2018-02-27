@@ -311,7 +311,11 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
         pulse_month = _pulse_month.format(repo['organization'], software)
         pulse_week = _pulse_week.format(repo['organization'], software)
         travis = _travis_base.format(repo['organization'], software)
-        rtd = _rtd_base.format(software)
+
+        # RTD badge
+        rtd = scrap_rtd_badge(repo['organization'], software)
+        if rtd is None:  # Brute force it
+            rtd = _rtd_base.format(software)
 
         if repo['license'] is None:
             license = "None Found"
@@ -1034,10 +1038,49 @@ def get_astroconda_membership(name="", data=""):
     return False
 
 
+def scrap_rtd_badge(repoorg, reponame):
+    import base64
+
+    # TODO: Add more possibilities as needed.
+    content = None
+    badge = None
+    readme_files = ('README', 'README.md', 'README.rst', 'README.txt')
+
+    for filename in readme_files:
+        url = (_repo_base.format(repoorg, reponame) +
+               '/contents/{}'.format(filename))
+        try:
+            print(url)
+            json = get_api_data(url)
+            if json is not None:
+                content = base64.b64decode(json['content']).decode('utf-8')
+        except Exception:
+            pass
+        else:
+            if content is not None:
+                break
+
+    if content is None:
+        return badge
+
+    for line in content.split(os.linesep):
+        if 'readthedocs.org/projects' in line and 'badge' in line:
+            for s in line.split():
+                if 'badge' in s:
+                    badge = s
+                    break
+        if badge is not None:
+            break
+
+    return badge
+
+
 if __name__ == "__main__":
     """Create an example output from the test repository."""
 
     org = 'spacetelescope'
     name = 'PyFITS'
-    test = get_statistics(org=org, repos=[name])
-    make_summary_page(test, outpage='repo-summary.html')
+
+    # TODO: This example does not work, need fixing.
+    test = get_statistics(org=org, name=name)
+    make_summary_page([test], outpage='repo-summary.html')
