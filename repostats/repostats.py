@@ -641,24 +641,26 @@ def print_text_summary(stats=None):
     closed_last_month = len(stats['closed_last_month'])
 
     # print to screen
-    print("\nReport for {0:s}".format(': '.join(stats['all_issues'][0]['repository_url'].split("/")[-2:])))
-    print("Open issues: {:3}\n"
-          "Closed issues this week: {:3}\n"
-          "Closed issues this month: {:3}\n"
-          "Commits in last week: {:3}\n"
-          "Commits in last month: {:3}\n".format(open_issues,
-                                                 closed_last_week,
-                                                 closed_last_month,
-                                                 last_week, last_month))
-    if prs > 0:
-        print("Open Pull Requests: {:3}\n".format(prs))
-        print("{:<7}{:<70}{:<22}{:22}".format("Number", "Title", "Created", "Last Updated"))
-        for opr in stats['open_pulls']:
-            print("{:<7}{:<70}{:<22}{:22}".format(opr['number'], opr['title'],
-                                                  opr['created_at'], opr['updated_at']))
+    if stats['all_issues']:
+        print("\nReport for {0:s}".format(': '.join(stats['all_issues'][0]['repository_url'].split("/")[-2:])))
+        print("Open issues: {:3}\n"
+              "Closed issues this week: {:3}\n"
+              "Closed issues this month: {:3}\n"
+              "Commits in last week: {:3}\n"
+              "Commits in last month: {:3}\n".format(open_issues,
+                                                     closed_last_week,
+                                                     closed_last_month,
+                                                     last_week, last_month))
+        if prs > 0:
+            print("Open Pull Requests: {:3}\n".format(prs))
+            print("{:<7}{:<70}{:<22}{:22}".format("Number", "Title", "Created", "Last Updated"))
+            for opr in stats['open_pulls']:
+                print("{:<7}{:<70}{:<22}{:22}".format(opr['number'], opr['title'],
+                                                      opr['created_at'], opr['updated_at']))
+        else:
+            print("No open pull requests")
     else:
-        print("No open pull requests")
-
+        print("No stats available")
 
 def read_response_file(filename=None):
     """Read a JSON response file.
