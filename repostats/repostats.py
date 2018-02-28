@@ -37,6 +37,7 @@ _pulse_week = "https://github.com/{0:s}/{1:s}/pulse/weekly"
 
 __repo_stats_key = '.repostats-key'
 
+
 def get_auth():
     """get authentication information from user read-only file.
 
@@ -676,6 +677,7 @@ def print_text_summary(stats=None):
             print("No open pull requests")
     else:
         print("No stats available")
+
 
 def read_response_file(filename=None):
     """Read a JSON response file.
