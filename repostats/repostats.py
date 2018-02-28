@@ -342,7 +342,8 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
         if repo['license'] is None:
             license = "None Found"
         else:
-            license = repo['license']['spdx_id']
+            # Was: repo['license']['spdx_id']
+            license = repo['license']['name'].replace('"', "'")
 
         try:
             astroconda_contrib = repo['astroconda-rel']
@@ -1132,7 +1133,7 @@ if __name__ == "__main__":
     stats = get_statistics(org=org, name=name)
     print_text_summary(stats)
 
-    repos = [name, 'synphot_refactor', 'asdf']
+    repos = [name, 'synphot_refactor', 'asdf', 'stginga']
     repo_data = get_repo_info(
         org=org, repos=repos, pub_only=True, astroconda=True)
     make_summary_page(repo_data)
