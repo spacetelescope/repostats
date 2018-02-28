@@ -99,3 +99,7 @@ ENV/
 
 # mypy
 .mypy_cache/
+
+# Generated files
+.repostats-key
+repository_summary.html
