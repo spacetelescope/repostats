@@ -1,0 +1,16 @@
+include README.md
+include CHANGES.rst
+
+include setup.py
+include setup.cfg
+
+recursive-include repostats *
+recursive-include docs *
+recursive-include licenses *
+
+global-exclude *.pyc *.o
+
+prune docs/build
+prune docs/api
+prune build
+prune dist
