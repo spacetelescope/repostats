@@ -35,17 +35,20 @@ _rtd_base = "https://readthedocs.org/projects/{0:s}/badge/?version=latest"
 _pulse_month = "https://github.com/{0:s}/{1:s}/pulse/monthly"
 _pulse_week = "https://github.com/{0:s}/{1:s}/pulse/weekly"
 
-
+__repo_stats_key = '.repostats-key'
 def get_auth():
     """get authentication information from user read-only file.
 
+    Parameters
+    ----------
+    None
+
     Notes
     -----
-    The file stores the b64 hashed information
+    The file stores the encryted user information.
     """
-    filename = '.repostats-key'
     try:
-        with open(filename, 'r') as f:
+        with open(__repo_stats_key, 'r') as f:
             key = f.read().strip()
         return key
     except FileNotFoundError:
@@ -53,17 +56,22 @@ def get_auth():
 
 
 def write_auth():
-    """Write authorization information to local disk.
+    """Write GitHub token authorization information to local disk.
+
+    Parameters
+    ----------
+    None
 
     Notes
     -----
     This attempts to be more secure at using the OAuth
     keys for Github. It will prompt for a username and token
-    string and save the b64 encripted string to the users cwd
-    in a readonly file without displaying the token on the terminal
+    string and save the encripted string to the users current working
+    directory in a readonly file, without displaying the token on the terminal.
     """
 
-    filename = '.repstats-key'
+    if os.access(__repo_stats_key, os.F_OK):
+            raise IOError("Remove previous file: {0:s}", __repo_stats_key)
     try:
         user = input("Github username:")
         token = getpass(prompt="Github token:")
@@ -71,17 +79,23 @@ def write_auth():
         raise ValueError("Not using PTY-compliant device")
 
     headers = urllib3.util.make_headers(basic_auth='{}:{}'.format(user, token))
-    with open(filename, 'w') as f:
+    with open(__repo_stats_key, 'w') as f:
         f.write(headers['authorization'])
-    os.chmod(filename, 0o400)
+    os.chmod(__repo_stats_key, 0o400)
 
 
 def _get_html_header():
-    """return the html header"""
+    """Return an HTML header with the appropriate CSS and google api calls.
+
+    Parameters
+    ----------
+    None
+
+    """
     header = """
         <html>
         <head>
-         <title>Made by repostatsy </title>
+         <title>Made by repostats </title>
          <meta name="viewport" charset="utf-8" content="width=device-width, initial-scale=1.0">
          <style type="text/css">
             table
@@ -169,6 +183,7 @@ def _set_table_column_names(names=None):
     names: collections.OrderedDict
         The dictionary of string column header names and their types
         Their types are the accepted google types
+
     """
     if (not isinstance(names, (OrderedDict)) and names is not None):
         raise TypeError("Expected names to be an OrderedDict")
@@ -216,9 +231,11 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
 
     Notes
     -----
-    This function is currently eant to work with the default list of colums,
+    This function is currently meant to work with the default list of colums,
     a new function could be coded to create a page with different columns.
-    This one may be edited in the future to be more general.
+    This one may be edited in the future to be more general. And the 
+    code dealing with the columns and writing the data to the header
+    of the html page could cbe refactoed to handle this.
 
     """
     if not isinstance(repo_data, list):
@@ -260,7 +277,6 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
     for repo in repo_data:
         software = repo['name']
         archived = repo['archived']
-        print(software)
         url = repo['html_url']
         open_issues = repo['open_issues_count']
         forks = repo['forks_count']
@@ -433,7 +449,7 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
     page += ("{0:s} GMT<br><br> <div id='table_div'></div>\n</body></html>".format(strftime("%a, %d %b %Y %H:%M:%S", gmtime())))
     html.write(page)
     html.close()
-
+    print("Created {0:s}".format(html))
 
 def render_html(md=""):
     """Turn markdown string into beautiful soup structure.
@@ -520,6 +536,7 @@ def get_statistics(org="", name=""):
     The returned dictionary can be used to create any reports the user wants
     See print_text_stats() to print a simple text report to the screen
     """
+
     # weekly commits for the whole year
     weekly_commits = (_repo_base.format(org, name)) + "stats/participation"
 
@@ -620,12 +637,19 @@ def print_text_summary(stats=None):
 
     # open issues
     open_issues = len([i for i in stats['all_issues'] if i['state'] == 'open'])
+    closed_last_week = len(stats['closed_last_week'])
+    closed_last_month = len(stats['closed_last_month'])
 
     # print to screen
     print("\nReport for {0:s}".format(': '.join(stats['all_issues'][0]['repository_url'].split("/")[-2:])))
     print("Open issues: {:3}\n"
+          "Closed issues this week: {:3}\n"
+          "Closed issues this month: {:3}\n"
           "Commits in last week: {:3}\n"
-          "Commits in last month: {:3}\n".format(open_issues, last_week, last_month))
+          "Commits in last month: {:3}\n".format(open_issues,
+                                                 closed_last_week,
+                                                 closed_last_month,
+                                                 last_week, last_month))
     if prs > 0:
         print("Open Pull Requests: {:3}\n".format(prs))
         print("{:<7}{:<70}{:<22}{:22}".format("Number", "Title", "Created", "Last Updated"))
@@ -686,11 +710,11 @@ def write_response_file(data=None, filename=None):
 
     with open(filename, 'w') as f:
         json.dump(data, f, default=date_handler)
-    os.chmod(filename, 400)
+    os.chmod(filename, 0o400)
 
 
 def get_all_repositories(org="", limit=10, pub_only=True):
-    """Return the list of repositories in the organization.
+    """Return a list of repositories in the organization.
 
     Parameters
     ----------
@@ -800,10 +824,16 @@ def get_repo_info(org="", limit=10, repos=None, pub_only=True,
 def _querry_for_info(org=None, repo=None):
     """Make querries for more information on the summary repo_data.
 
-    Paramters
-    ---------
+    Parameters
+    ----------
     repo_data: list[dicts]
-        A list of repositories with basic information
+        A list of repositories with basic information. The repo
+        dictionariers are updated with the additional information. 
+
+    Notes
+    -----
+    Reconsider updating the dictionaries like this if the 
+    returned information becomes large.
     """
     if org is None:
         raise ValueError("Need name of organization")
@@ -815,7 +845,7 @@ def _querry_for_info(org=None, repo=None):
 
 
 def get_contributors(org=None, name=None):
-    """return the ranking of contributors in descending order.
+    """return the list of contributors in descending order.
 
     Parameters
     ----------
@@ -838,8 +868,8 @@ def get_contributors(org=None, name=None):
 def check_for_tags(url=None, org=None, name=None):
     """Check for tag information, not alll repos may have tags.
 
-    Paramters
-    ---------
+    Parameters
+    ----------
     tags_url: string
         url for the tags api
     name: string
@@ -866,8 +896,8 @@ def check_for_tags(url=None, org=None, name=None):
 def check_for_commits(url=None, name=None, org=None, latest=True):
     """Check for commit information.
 
-    Paramters
-    ---------
+    Parameters
+    ----------
     commmit_url: string
         url for the tags api
     name: string
@@ -983,8 +1013,8 @@ def _update_tags_with_commits(tags_data=None, sort_data=False, keyname='datetime
 def _sort_list_dict_by(ld_name=None, keyname=None):
     """sort a list of dictionaries by key.
 
-    Paramters
-    ---------
+    Parameters
+    ----------
     ld_name: list[dict]
         list of dictionaries
     keyname: str
@@ -996,7 +1026,13 @@ def _sort_list_dict_by(ld_name=None, keyname=None):
 
 
 def get_astroconda_list(flavor="dev"):
-    """return the list of astroconda packages."""
+    """return the list of astroconda packages.
+
+    Parameters
+    ----------
+    flavor: string
+        The sub type of astroconda distribution 
+    """
     if flavor not in ["dev", "contrib"]:
         raise ValueError("Only dev and contrib flavors currently exist")
 
@@ -1007,7 +1043,7 @@ def get_astroconda_list(flavor="dev"):
 
 
 def get_astroconda_membership(name="", data=""):
-    """Return whether the repo is a member of the astroconda release.
+    """Return whether the repo is a member of the named astroconda release.
 
     Parameters
     ----------
@@ -1039,5 +1075,5 @@ if __name__ == "__main__":
 
     org = 'spacetelescope'
     name = 'PyFITS'
-    test = get_statistics(org=org, repos=[name])
-    make_summary_page(test, outpage='repostats.html')
+    stats = get_statistics(org=org, name=name)
+    print_text_summary(stats)

@@ -1,3 +1,4 @@
+- added basic spacetelescope package structure and docs
 - renamed release to repostats
 - added better octal spec to file readonly, reduced number of reads of auth file
 - added closed issues by month and week, some refactoring, warning about RTD unknown repos
