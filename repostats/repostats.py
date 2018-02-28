@@ -454,7 +454,7 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
     page += ("{0:s} GMT<br><br> <div id='table_div'></div>\n</body></html>".format(strftime("%a, %d %b %Y %H:%M:%S", gmtime())))
     html.write(page)
     html.close()
-    print("Created {0:s}".format(html))
+    print("Created {0:s}".format(outpage))
 
 def render_html(md=""):
     """Turn markdown string into beautiful soup structure.
@@ -506,24 +506,29 @@ def get_api_data(url=""):
         raise OSError('Connection to GitHub failed.')
 
     resp_header = response.getheaders()
-    status = resp_header['status']
-    if '200' not in status:
-        if '409 Conflict' in status:
-            print("Conflict, empty repository")
+    try:
+        status = resp_header['status']
+        if '200' not in status:
+            if '409 Conflict' in status:
+                print("Conflict, empty repository")
+            return None
+        else:
+            data = json.loads(response.data.decode('iso-8859-1'))
+            # deal with pagination
+            if 'Link' in resp_header.keys():
+                links = response.getheaders()['Link'].split(',')
+                if links:
+                    next_url = links[0].split(";")[0].strip()[1:-2]
+                    total = int(links[1].split(";")[0].strip()[-2]) + 1
+                    for i in range(2, total, 1):
+                        url = next_url + str(i)
+                        response = http.request('GET', url, headers=headers, retries=False)
+                        data += json.loads(response.data.decode('iso-8859-1'))
+            return data
+    except KeyError:
+        for k,v in resp_header:
+            print(k,v)
         return None
-    else:
-        data = json.loads(response.data.decode('iso-8859-1'))
-        # deal with pagination
-        if 'Link' in resp_header.keys():
-            links = response.getheaders()['Link'].split(',')
-            if links:
-                next_url = links[0].split(";")[0].strip()[1:-2]
-                total = int(links[1].split(";")[0].strip()[-2]) + 1
-                for i in range(2, total, 1):
-                    url = next_url + str(i)
-                    response = http.request('GET', url, headers=headers, retries=False)
-                    data += json.loads(response.data.decode('iso-8859-1'))
-        return data
 
 
 def get_statistics(org="", name=""):
