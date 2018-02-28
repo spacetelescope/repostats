@@ -238,7 +238,7 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
     -----
     This function is currently meant to work with the default list of colums,
     a new function could be coded to create a page with different columns.
-    This one may be edited in the future to be more general. And the 
+    This one may be edited in the future to be more general. And the
     code dealing with the columns and writing the data to the header
     of the html page could cbe refactoed to handle this.
 
@@ -332,7 +332,11 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
         pulse_month = _pulse_month.format(repo['organization'], software)
         pulse_week = _pulse_week.format(repo['organization'], software)
         travis = _travis_base.format(repo['organization'], software)
-        rtd = _rtd_base.format(software)
+
+        # RTD badge
+        rtd = scrap_rtd_badge(repo['organization'], software)
+        if rtd is None:  # Brute force it
+            rtd = _rtd_base.format(software)
 
         if repo['license'] is None:
             license = "None Found"
@@ -455,6 +459,7 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
     html.write(page)
     html.close()
     print("Created {0:s}".format(outpage))
+
 
 def render_html(md=""):
     """Turn markdown string into beautiful soup structure.
@@ -840,11 +845,11 @@ def _querry_for_info(org=None, repo=None):
     ----------
     repo_data: list[dicts]
         A list of repositories with basic information. The repo
-        dictionariers are updated with the additional information. 
+        dictionariers are updated with the additional information.
 
     Notes
     -----
-    Reconsider updating the dictionaries like this if the 
+    Reconsider updating the dictionaries like this if the
     returned information becomes large.
     """
     if org is None:
@@ -1043,7 +1048,7 @@ def get_astroconda_list(flavor="dev"):
     Parameters
     ----------
     flavor: string
-        The sub type of astroconda distribution 
+        The sub type of astroconda distribution
     """
     if flavor not in ["dev", "contrib"]:
         raise ValueError("Only dev and contrib flavors currently exist")
@@ -1082,6 +1087,41 @@ def get_astroconda_membership(name="", data=""):
     return False
 
 
+def scrap_rtd_badge(repoorg, reponame):
+    import base64
+    import re
+
+    content = None
+    badge = None
+
+    # TODO: Add more possibilities as needed.
+    readme_files = ('README', 'README.md', 'README.rst', 'README.txt')
+
+    for filename in readme_files:
+        url = (_repo_base.format(repoorg, reponame) +
+               '/contents/{}'.format(filename))
+        try:
+            json = get_api_data(url)
+            if json is not None:
+                content = base64.b64decode(json['content']).decode('utf-8')
+        except Exception:
+            pass
+        else:
+            if content is not None:
+                break
+
+    if content is None:
+        return badge
+
+    # Regex magic by Craig Jones.
+    m = re.search('(http[s]:\/\/readthedocs.*version=[\w]+)', content)
+    if m is None:
+        return badge
+    badge = m.group(0)
+
+    return badge
+
+
 if __name__ == "__main__":
     """Create an example output from the test repository."""
 
@@ -1089,3 +1129,8 @@ if __name__ == "__main__":
     name = 'PyFITS'
     stats = get_statistics(org=org, name=name)
     print_text_summary(stats)
+
+    repos = [name, 'synphot_refactor', 'asdf']
+    repo_data = get_repo_info(
+        org=org, repos=repos, pub_only=True, astroconda=True)
+    make_summary_page(repo_data)
