@@ -72,4 +72,33 @@ In order to look over all the repositories in the list, simply iterate::
         repostats.print_text_summary(repo['statistics'])
 
 
+Get information for specific repositories
+-----------------------------------------
+If you know the repository names for which you'd like information, you can specify them directly::
+    
+
+       In [1]: repos = ['PyFITS', 'asdf', 'understanding-json-schema']
+
+       In [2]: data = repostats.get_repo_info(org='spacetelescope', repos=repos)
+    
+       In [3]: repostats.make_summary_page(data, outpage='myrepos.html')
+
+
+Get the statistics information for a single repository
+------------------------------------------------------
+You can use the `get_statistics()` to return a dictionary of the statistics information for a single repository; you can then do something with the results, or use `print_text_summary()` to
+print a summary of the results to the terminal screen::
+
+
+    In [1]: stats = repostats.get_statistics(org='spacetelescope', repos='understanding-json-schema')
+
+
+
+Get a list of the software included with the astroconda distribution
+--------------------------------------------------------------------
+`get_astroconda_list()` will return a list of the names of the software included with the astroconda distribution::
+
+
+    In [1]: astroconda = get_astroconda_list(flavor="contrib")
+
 
