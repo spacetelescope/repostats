@@ -36,6 +36,7 @@ _pulse_month = "https://github.com/{0:s}/{1:s}/pulse/monthly"
 _pulse_week = "https://github.com/{0:s}/{1:s}/pulse/weekly"
 
 __repo_stats_key = '.repostats-key'
+
 def get_auth():
     """get authentication information from user read-only file.
 
@@ -68,6 +69,10 @@ def write_auth():
     keys for Github. It will prompt for a username and token
     string and save the encripted string to the users current working
     directory in a readonly file, without displaying the token on the terminal.
+
+    If the token is entered incorrectly, an error will likely be returned when
+    the request executes. The user needs to delete the
+    password file (.repostats-key) and save a new one using write_auth().
     """
 
     if os.access(__repo_stats_key, os.F_OK):
