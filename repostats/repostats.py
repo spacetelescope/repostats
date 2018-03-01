@@ -12,6 +12,8 @@ import urllib3
 import urllib3.contrib.pyopenssl
 import certifi
 import datetime
+import base64
+import re
 import numpy as np
 from dateutil import parser
 from time import gmtime, strftime
@@ -335,7 +337,7 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
         travis = _travis_base.format(repo['organization'], software)
 
         # RTD badge
-        rtd = scrap_rtd_badge(repo['organization'], software)
+        rtd = scrape_rtd_badge(repo['organization'], software)
         if rtd is None:  # Brute force it
             rtd = _rtd_base.format(software)
 
@@ -1090,9 +1092,20 @@ def get_astroconda_membership(name="", data=""):
     return False
 
 
-def scrap_rtd_badge(repoorg, reponame):
-    import base64
-    import re
+def scrape_rtd_badge(org=None, name=None):
+    """Scrape RTD badge from repository readme file.
+
+    Parameters
+    ----------
+    org : string
+        name of the organization
+
+    name: string
+        name of the repository
+
+    """
+    if org is None or name is None:
+        raise ValueError('org and name must be provided as strings')
 
     content = None
     badge = None
@@ -1101,28 +1114,20 @@ def scrap_rtd_badge(repoorg, reponame):
     readme_files = ('README', 'README.md', 'README.rst', 'README.txt')
 
     for filename in readme_files:
-        url = (_repo_base.format(repoorg, reponame) +
+        url = (_repo_base.format(org, name) +
                '/contents/{}'.format(filename))
-        try:
-            json = get_api_data(url)
-            if json is not None:
-                content = base64.b64decode(json['content']).decode('utf-8')
-        except Exception:
-            pass
-        else:
+        json = get_api_data(url)
+        if json is not None:  # we found the right readme name
+            content = base64.b64decode(json['content']).decode('utf-8')
             if content is not None:
-                break
+                m = re.search(
+                    '(http[s]:\/\/readthedocs.*version=[\w]+)',
+                    content)  # Regex magic by Craig Jones.
+                if m is not None:  # there's an RTD listing
+                    badge = m.group(0)
+                return badge
 
-    if content is None:
-        return badge
-
-    # Regex magic by Craig Jones.
-    m = re.search('(http[s]:\/\/readthedocs.*version=[\w]+)', content)
-    if m is None:
-        return badge
-    badge = m.group(0)
-
-    return badge
+    return badge  # Should be None
 
 
 if __name__ == "__main__":
