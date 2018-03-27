@@ -22,7 +22,7 @@ from getpass import getpass, GetPassWarning
 
 
 # some base api urls for reference
-_orgrepo_base = "https://api.github.com/orgs/{0:s}/repos?per_page={1:d}type={2:s}"
+_orgrepo_base = "https://api.github.com/orgs/{0:s}/repos?per_page={1:d}&type={2:s}"
 _repo_base = "https://api.github.com/repos/{0:s}/{1:s}"
 _rel_url = _repo_base + ("/releases/latest")  # latest release only
 _tags_url = _repo_base + ("/tags")  # tags unordered
@@ -537,6 +537,7 @@ def get_api_data(url=""):
     except KeyError:
         for k,v in resp_header:
             print(k,v)
+        print(response)
         return None
 
 
@@ -778,7 +779,7 @@ def _chunk_list(listname=None, size=None):
 
 def get_repo_info(org="", limit=10, repos=None, pub_only=True,
                   astroconda=True):
-    """Get the release information for all repositories in an organization.
+    """Get basic information for all repositories in an organization.
 
     Parameters
     ----------
@@ -1134,10 +1135,12 @@ if __name__ == "__main__":
     """Create an example output from the test repository."""
 
     org = 'spacetelescope'
-    name = 'PyFITS'
+    name = 'asdf'
     stats = get_statistics(org=org, name=name)
+    print("Example of a basic report:\n")
     print_text_summary(stats)
 
+    print("\nNow creating a basic html summary page:\n")
     repos = [name, 'synphot_refactor', 'asdf', 'stginga']
     repo_data = get_repo_info(
         org=org, repos=repos, pub_only=True, astroconda=True)

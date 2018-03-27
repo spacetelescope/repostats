@@ -1,3 +1,6 @@
+- updated bug in one of the base urls
+- fixed setup bug for egg expansion by adding zip_safe = False
+- fixed readme to conform to package name change and update example usage
 - added basic spacetelescope package structure and docs
 - renamed release to repostats
 - added better octal spec to file readonly, reduced number of reads of auth file

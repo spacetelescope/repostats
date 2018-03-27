@@ -101,6 +101,7 @@ setup(
     author_email=AUTHOR_EMAIL,
     description=DESCRIPTION,
     license=LICENSE,
+    zip_safe=False,
     url=URL,
     classifiers=[
         'Intended Audience :: Science/Research',
@@ -109,9 +110,6 @@ setup(
         'Programming Language :: Python',
         'Topic :: Scientific/Engineering :: Astronomy',
         'Topic :: Software Development :: Libraries :: Python Modules',
-    ],
-    install_requires=[
-        'astropy',
     ],
     tests_require=['pytest'],
     packages=find_packages(),
