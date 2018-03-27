@@ -7,7 +7,7 @@ organization, with 50 results per page and only look at the public repositories:
 
         In [1]: import repostats
 
-        In [2]: data=repostats.get_repo_info(org='spacetelescope',limit=50, pub_only=True)
+        In [2]: data=repostats.get_repo_info(org='spacetelescope', limit=50, pub_only=True)
         Examining https://api.github.com/orgs/spacetelescope/repos?per_page=20....
         Checking latest information for: PyFITS
         Checking latest information for: scientific-python-training-2012
@@ -32,7 +32,7 @@ organization, with 50 results per page and only look at the public repositories:
 
 Now, make a summary page of the results and save to spacetelescope.html:
 
-        In [3]: test=repostats.make_summary_page(data, outpage='spacetelescope.html')
+        In [3]: repostats.make_summary_page(data, outpage='spacetelescope.html')
         Saving to spacetelescope.html
         Checking for older html file before writing spacetelescope.html
 
