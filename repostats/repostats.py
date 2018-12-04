@@ -777,7 +777,7 @@ def _chunk_list(listname=None, size=None):
         yield listname[i:i + size]
 
 
-def get_repo_info(org="", limit=10, repos=None, pub_only=True,
+def get_repo_info(org="", limit=200, repos=None, pub_only=True,
                   astroconda=True):
     """Get basic information for all repositories in an organization.
 
