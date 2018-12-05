@@ -27,9 +27,10 @@ _repo_base = "https://api.github.com/repos/{0:s}/{1:s}"
 _rel_url = _repo_base + ("/releases/latest")  # latest release only
 _tags_url = _repo_base + ("/tags")  # tags unordered
 _commit_url = _repo_base + ("/commits")  # all commits
-_contributors_url = _repo_base + ("/contributors?anon=1")  # contrib sorted by commit
+_contributors_url = _repo_base + ("/contributors?anon=true")  # contrib sorted by commit
 _open_pulls_url = _repo_base + ("/pulls?state=open")
 _all_issues_url = _repo_base + ("/issues?state=all&sort=created")
+_repo_contents_url = _repo_base + ("/contents")
 
 # Non-github addresses
 _travis_base = "https://img.shields.io/travis/{0:s}/{1:s}.svg"
@@ -245,6 +246,8 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
     code dealing with the columns and writing the data to the header
     of the html page could cbe refactoed to handle this.
 
+    This code could be improved a lot ...
+
     """
     if not isinstance(repo_data, list):
         raise TypeError("Expected data to be a list of dictionaries")
@@ -324,10 +327,13 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
             closed_last_month = len(repo['statistics']['closed_last_month'])
             avg_issue_time = repo['statistics']['average_issue_time']
             # commits
-            if repo['statistics']['weekly_commits']:
-                if len(repo['statistics']['weekly_commits']['all']) > 0:
-                    commit_week = np.sum(repo['statistics']['weekly_commits']['all'][-1])
-                    commit_month = np.sum(repo['statistics']['weekly_commits']['all'][-4])
+            try: 
+                if repo['statistics']['weekly_commits']:
+                    if len(repo['statistics']['weekly_commits']['all']) > 0:
+                        commit_week = np.sum(repo['statistics']['weekly_commits']['all'][-1])
+                        commit_month = np.sum(repo['statistics']['weekly_commits']['all'][-4])
+            except KeyError:
+                pass
             # PRs
             if repo['statistics']['open_pulls']:
                 prs = len(repo['statistics']['open_pulls'])
@@ -535,13 +541,13 @@ def get_api_data(url=""):
                         data += json.loads(response.data.decode('iso-8859-1'))
             return data
     except KeyError:
-        for k,v in resp_header:
-            print(k,v)
+        for k, v in resp_header:
+            print(k, v)
         print(response)
         return None
 
 
-def get_statistics(org="", name=""):
+def get_statistics(org="", name="", subdirs=False):
     """Get pulse statistics for the repository.
 
     Parameters
@@ -550,19 +556,23 @@ def get_statistics(org="", name=""):
         The name of the organization
     repo: string
         The name of the repository
+    subdirs: bool
+        If True, then information on commits in subdirectories under the reponame
+        package in the primary directory are examined
+
 
     Notes
     -----
     The returned dictionary can be used to create any reports the user wants
     See print_text_stats() to print a simple text report to the screen
     """
-
+    stats = {}
     # weekly commits for the whole year
-    weekly_commits = (_repo_base.format(org, name)) + "stats/participation"
-
+    weekly_commits = (_repo_base.format(org, name)) + "/stats/participation"
     # empty = b'{"all":[],"owner":[]}'
     response = get_api_data(weekly_commits)
-    stats = {'weekly_commits': response}
+    if response is not None:
+        stats = {'weekly_commits': response}
 
     # get pull requests that are still open
     open_pulls = _open_pulls_url.format(org, name)
@@ -576,6 +586,13 @@ def get_statistics(org="", name=""):
 
     find_closed_issues(stats)
 
+    if subdirs:
+        subdir_list = get_all_subdirs(org, repo=name)
+        stats['subdir_commits'] = {}
+        if subdir_list is None:
+            print("NO results returned for subdirs, skipping")
+        for item in subdir_list:
+            stats['subdir_commits'][item] = check_for_commits(repo=name, org=org, latest=True, tree=item)
     return stats
 
 
@@ -671,7 +688,7 @@ def print_text_summary(stats=None):
                                                      closed_last_week,
                                                      closed_last_month,
                                                      last_week, last_month))
-        if prs > 0:
+        if prs:
             print("Open Pull Requests: {:3}\n".format(prs))
             print("{:<7}{:<70}{:<22}{:22}".format("Number", "Title", "Created", "Last Updated"))
             for opr in stats['open_pulls']:
@@ -681,6 +698,17 @@ def print_text_summary(stats=None):
             print("No open pull requests")
     else:
         print("No stats available")
+
+    if 'subdir_commits' in stats.keys():
+        print("\nMost recent commit in each subpackage\n")
+        for item in stats['subdir_commits'].keys():
+            ik = stats['subdir_commits'][item]
+            print("{:<25}<--{:<25}{:<25}:{:<25}{:<25}\n{:s}\n\n".format(item,
+                                                       ik['commit']['author']['name'],
+                                                       ik['commit']['author']['date'],
+                                                       ik['commit']['committer']['name'],
+                                                       ik['commit']['committer']['date'],
+                                                       ik['commit']['message']))
 
 
 def read_response_file(filename=None):
@@ -734,6 +762,55 @@ def write_response_file(data=None, filename=None):
     with open(filename, 'w') as f:
         json.dump(data, f, default=date_handler)
     os.chmod(filename, 0o400)
+
+
+def get_all_subdirs(org=None, repo=None, pub_only=True):
+    """Return a list of the subdirs in a specific repo.
+
+    For repositories that further organize their code into
+    subdirectories.
+
+    Parameters
+    ----------
+    org: string
+        The name of the organization
+    repo: string
+        The name of the repository
+
+    Returns
+    -------
+    A list of repository subpackages.
+
+    """
+    if repo is None:
+        raise ValueError("Need repository name")
+    if org is None:
+        raise ValueError("Need organization name")
+    if pub_only:
+        rtype = "public"
+    else:
+        rtype = "all"  # public and private
+    limit = 1
+
+    print("Getting list of all subpackages in {0:s} : {1:s} ...".format(org, repo))
+    url = _repo_contents_url.format(org, repo)
+    results = get_api_data(url=url)
+    if results is None:
+        raise ValueError("No repositories data found")
+
+    tree_url = None
+    for item in results:
+        if repo == item['name']:
+            tree_url = item['_links']['git']
+    subdirs = []
+    if tree_url:
+        results = get_api_data(url=tree_url)
+        if results is None:
+            print("No subdirectory results")
+        for item in results['tree']:
+            if item['type'] == 'tree':
+                subdirs.append(item['path'])
+    return subdirs
 
 
 def get_all_repositories(org="", limit=10, pub_only=True):
@@ -862,7 +939,7 @@ def _querry_for_info(org=None, repo=None):
         raise ValueError("Need name of organization")
     repo['release_info'] = check_for_release(org=org, name=repo['name'], latest=True)
     repo['tag_info'] = check_for_tags(org=org, name=repo['name'])
-    repo['commit_info'] = check_for_commits(org=org, name=repo['name'], latest=True)
+    repo['commit_info'] = check_for_commits(org=org, repo=repo['name'], latest=True)
     repo['statistics'] = get_statistics(org=org, name=repo['name'])
     repo['contributors'] = get_contributors(org=org, name=repo['name'])
 
@@ -916,12 +993,12 @@ def check_for_tags(url=None, org=None, name=None):
     return tags_data
 
 
-def check_for_commits(url=None, name=None, org=None, latest=True):
+def check_for_commits(url=None, repo=None, org=None, latest=True, tree=None):
     """Check for commit information.
 
     Parameters
     ----------
-    commmit_url: string
+    url: string
         url for the tags api
     name: string
         The name of the repository, use if calling this function by itself
@@ -930,19 +1007,28 @@ def check_for_commits(url=None, name=None, org=None, latest=True):
     latest: bool
         Just return the latest commit, otherwise return all commits.
         If False, it will return by default the last 30 commits
+    tree: string
+        get the commits for the specified path in the repository
     """
+    _commit_url = _repo_base + "/commits"  # all commits
+
     if url is None:
         if (org is None):
             raise ValueError("Expected organziation name")
-        if (name is None):
+        if (repo is None):
             raise ValueError("Expected repository name")
-        commit_url = _commit_url.format(org, name)
-    else:
-        commit_url = url
-
-    results = get_api_data(commit_url)
-    if latest and results is not None:
-        return results[0]
+        if tree:
+            _commit_url += "?path={2:s}/{3:s}"
+            url = _commit_url.format(org, repo, repo, tree)
+        else:
+            url = _commit_url.format(org, repo)
+    results = get_api_data(url)
+    if latest:
+        if results is not None:
+            if len(results) > 0:
+                return results[0]
+            else:
+                return None
     else:
         return results
 
