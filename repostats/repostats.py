@@ -24,7 +24,7 @@ from getpass import getpass, GetPassWarning
 # some base api urls for reference
 _orgrepo_base = "https://api.github.com/orgs/{0:s}/repos?per_page={1:d}&type={2:s}"
 _repo_base = "https://api.github.com/repos/{0:s}/{1:s}"
-_rel_url = _repo_base + ("/releases/latest")  # latest release only
+_rel_url = _repo_base + ("/releases")
 _tags_url = _repo_base + ("/tags")  # tags unordered
 _commit_url = _repo_base + ("/commits")  # all commits
 _contributors_url = _repo_base + ("/contributors?anon=true")  # contrib sorted by commit
@@ -362,11 +362,11 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
 
         # now the variable ones
         if (repo['release_info']):
-            rtcname = 'N/A'
-            date = 'N/A'
-            author = 'N/A'
-            author_url = 'N/A'
-            descrip = 'N/A'
+            rtcname = repo['release_info']['name']
+            date = repo['release_info']['created_at']
+            author = repo['release_info']['author']['login']
+            author_url = repo['release_info']['author']['html_url']
+            descrip = render_html(repo['release_info']['body'])
         else:
             if repo['release_info'] is None:
                 if ((repo['tag_info'] is None) or (not repo['tag_info'])):
@@ -400,12 +400,6 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
                         author_url = "http://github.com/{0:s}".format(author)
                     descrip = render_html(repo['tag_info'][-1]['commit_info']['commit']['message'])
 
-            else:
-                rtcname = repo['release_info']['name']
-                date = repo['release_info']['created_at']
-                author = repo['release_info']['author']['login']
-                author_url = repo['release_info']['author']['html_url']
-                descrip = render_html(repo['release_info']['body'])
 
         html_string = ("[\'<a href=\"{}\">{}</a>\',"
                        "\"{}\","
@@ -487,6 +481,287 @@ def render_html(md=""):
         return ValueError("Supply a string with markdown")
     m = mistune.markdown(md)
     return m
+
+
+def make_astropy_affiliated_summary_page(repo_data=None, outpage="affiliated_summary.html"):
+    """Make a summary HTML page from a list of repositories that are astropy affiliated packages.
+
+    Parameters
+    ----------
+    repo_data: list[dict{}]
+        a list of dictionaries that contains information about each repository
+        as created by get_repo_info()
+    columns: OrderedDict (optional)
+        a dictionary of the table column names and their google types
+    outpage: string (optional)
+        the name of the output html file
+
+    Notes
+    -----
+    This function is currently meant to work with the default list of colums,
+    a new function could be coded to create a page with different columns.
+    This one may be edited in the future to be more general. And the
+    code dealing with the columns and writing the data to the header
+    of the html page could be refactored to handle this.
+
+    This code could be improved a lot ...
+
+    """
+    if not isinstance(repo_data, list):
+        raise TypeError("Expected data to be a list of dictionaries")
+
+    columns = OrderedDict([("Package Name", "string"),
+                           ("Archived", "string"),
+                           ("Astroconda-dev", "string"),
+                           ("Astroconda-contrib", "string"),
+                           ("Description", "string"),
+                           ("Maintainer", "string"),
+                           ("Provisional", "string"),
+                           ("Stable", "string"),
+                           ("Version", "string"),
+                           ("Pulse", "string"),
+                           ("Release/Tag/Commit--Information", "string"),
+                           ("Last Released", "string"),
+                           ("Author", "string"),
+                           ("Last Commit", "string"),
+                           ("Top commits", "string"),
+                           ("Contributors", "number"),
+                           ("Travis-CI", "string"),
+                           ("RTD-latest", "string"),
+                           ("Open Issues", "number"),
+                           ("Closed Last Week", "number"),
+                           ("Closed Last Month", "number"),
+                           ("Avg issue time (days)", "number"),
+                           ("Open PRs", "number"),
+                           ("Commits per week", "number"),
+                           ("Commits per month", "number"),
+                           ("Forks", "number"),
+                           ("Stars", "number"),
+                           ("License", "string")])
+
+    # sa ve a web page we can display for ourselves,
+    print("Checking for older html file before writing {0:s}".format(outpage))
+    if os.access(outpage, os.F_OK):
+        os.remove(outpage)
+    html = open(outpage, 'w')
+
+    # write the basic header that the page needs
+    html.write(_get_html_header())
+
+    # this section includes the javascript code and google calls for the
+    # interactive features (table and sorting)
+    html_string = """
+
+        <script type="text/javascript">
+          google.load("visualization", "1", {packages:["table"]});
+          google.setOnLoadCallback(drawTable);
+          function drawTable() {
+            var data = new google.visualization.DataTable();
+        """
+
+    for k, v in columns.items():
+        html_string += ('\t\tdata.addColumn(\"{0}\", \"{1}\");\n'.format(v, k))
+
+    html_string += ("\ndata.addRows([")
+    html.write(html_string)
+
+    # create the table rows for each repository entry
+    for repo in repo_data:
+        description = repo['description']
+        maintainer = repo['maintainer']
+        provisional = repo['provisional']
+        stable = repo['stable']
+        software = repo['name']
+        archived = repo['archived']
+        url = repo['html_url']
+        open_issues = repo['open_issues_count']
+        forks = repo['forks_count']
+        stars = repo['stargazers_count']
+
+        total_contributors = 0
+        if repo['contributors']:
+            total_contributors = len(repo['contributors'])
+            try:
+                top_commits_name1 = repo['contributors'][0]['login']
+            except KeyError:
+                top_commits_name1 = repo['contributors'][0]['name']
+            top_comitts_com1 = repo['contributors'][0]['contributions']
+
+            if (total_contributors > 1):
+                try:
+                    top_commits_name2 = repo['contributors'][1]['login']
+                except KeyError:
+                    top_commits_name2 = repo['contributors'][1]['name']
+                top_comitts_com2 = repo['contributors'][1]['contributions']
+            else:
+                top_commits_name2 = 'N/A'
+                top_comitts_com2 = 0
+
+        commit_week = 0
+        commit_month = 0
+        prs = 0
+        last_commit = "N/A"
+        avg_issue_time = 0
+
+        # record the last commit to the repo
+        if (repo['commit_info']):
+            last_commit = repo['commit_info']['commit']['author']['date']
+
+        if repo['statistics']:
+            closed_last_week = len(repo['statistics']['closed_last_week'])
+            closed_last_month = len(repo['statistics']['closed_last_month'])
+            avg_issue_time = repo['statistics']['average_issue_time']
+            # commits
+            try:
+                if repo['statistics']['weekly_commits']:
+                    if len(repo['statistics']['weekly_commits']['all']) > 0:
+                        commit_week = np.sum(repo['statistics']['weekly_commits']['all'][-1])
+                        commit_month = np.sum(repo['statistics']['weekly_commits']['all'][-4])
+            except KeyError:
+                pass
+            # PRs
+            if repo['statistics']['open_pulls']:
+                prs = len(repo['statistics']['open_pulls'])
+
+        pulse_month = _pulse_month.format(repo['organization'], software)
+        pulse_week = _pulse_week.format(repo['organization'], software)
+        travis = _travis_base.format(repo['organization'], software)
+
+        # RTD badge
+        rtd = scrape_rtd_badge(repo['organization'], software)
+        if rtd is None:  # Brute force it
+            rtd = _rtd_base.format(software)
+
+        if repo['license'] is None:
+            license = "None Found"
+        else:
+            # Was: repo['license']['spdx_id']
+            license = repo['license']['name'].replace('"', "'")
+
+        try:
+            astroconda_contrib = repo['astroconda-rel']
+            astroconda_dev = repo['astroconda-dev']
+        except KeyError:
+            astroconda_contrib = 'N/A'
+            astroconda_dev = 'N/A'
+
+        # now the variable ones
+        if (repo['release_info']):
+            rtcname = repo['release_info']['name']
+            date = repo['release_info']['created_at']
+            author = repo['release_info']['author']['login']
+            author_url = repo['release_info']['author']['html_url']
+            descrip = render_html(repo['release_info']['body'])
+        else:
+            if repo['release_info'] is None:
+                if ((repo['tag_info'] is None) or (not repo['tag_info'])):
+                    rtcname = "latest commit"
+                    if (repo['commit_info']):
+                        date = repo['commit_info']['commit']['author']['date']
+                        try:
+                            author = repo['commit_info']['author']['login']
+                        except TypeError:
+                            author = repo['commit_info']['commit']['author']['name']
+                        author_url = "http://github.com/{0:s}".format(author)
+                        descrip = render_html(repo['commit_info']['commit']['message']).strip()
+                    else:
+                        date = 'N/A'
+                        author = 'N/A'
+                        author_url = 'N/A'
+                        descrip = 'N/A'
+                else:
+                    rtcname = repo['tag_info'][-1]['name']  # most recent
+                    try:
+                        date = repo['tag_info'][-1]['commit_info']['commit']['author']['date']
+                    except TypeError:
+                        date = "N/A"
+                    try:
+                        author = repo['tag_info'][-1]['commit_info']['author']['login']
+                    except:
+                        author = "N/A"
+                    try:
+                        author_url = repo['tag_info'][-1]['commit_info']['author']['html_url']
+                    except TypeError:
+                        author_url = "http://github.com/{0:s}".format(author)
+                    descrip = render_html(repo['tag_info'][-1]['commit_info']['commit']['message'])
+
+            else:
+                rtcname = repo['release_info']['name']
+                date = repo['release_info']['created_at']
+                author = repo['release_info']['author']['login']
+                author_url = repo['release_info']['author']['html_url']
+                descrip = render_html(repo['release_info']['body'])
+
+        html_string = ("[\'<a href=\"{}\">{}</a>\',"
+                       "\"{}\","
+                       "\"{}\","
+                       "\"{}\","
+                       "\"{}\","
+                       "\"{}\","
+                       "\"{}\","
+                       "\"{}\","
+                       "\"{}\","
+                       "\'<a href=\"{}\">{}</a><br><br>"
+                       "<a href=\"{}\">{}</a>\',"
+                       "{}{}{},"
+                       "\"{}\","
+                       "\'<a href=\"{}\">{}</a>\',"
+                       "\"{}\","
+                       "\'{}: {}<br>"
+                       "{}: {}\',"
+                       "{},"
+                       "\'<img src=\"{}\">\',\'<img src=\"{}\">\',"
+                       "{},{},{},"
+                       "{},{},{},{},"
+                       "{},{},\"{}\"],\n".format(url, software,
+                                           archived,
+                                           astroconda_contrib,
+                                           astroconda_dev,
+                                           description,
+                                           maintainer,
+                                           provisional,
+                                           stable,
+                                           rtcname,
+                                           pulse_month, "Month Stats",
+                                           pulse_week, "Week Stats",
+                                           chr(96), descrip, chr(96),
+                                           date,
+                                           author_url, author,
+                                           last_commit,
+                                           top_commits_name1, top_comitts_com1,
+                                           top_commits_name2, top_comitts_com2,
+                                           total_contributors,
+                                           travis, rtd,
+                                           open_issues, closed_last_week, closed_last_month,
+                                           avg_issue_time, prs, commit_week, commit_month,
+                                           forks, stars, license))
+        html.write(html_string)
+
+    page = '''  ]);
+
+    var table = new google.visualization.Table(document.getElementById("table_div"));
+    table.draw(data, {showRowNumber: true, allowHtml: true, frozenColumns: 1,
+                      cssClassNames: cssClassNames, height: "500px"});
+    }
+    </script>
+    </head>
+    <body>
+    <p align="center" size=10pt><strong>Click on the column header name to sort by that column </strong></p>
+    <br>
+    <p align="left" size=10pt>
+    <ul>
+    <li>If there hasn't been any github release or tag  then the information is taken from the last commit to that repository
+    <li>The issues count includes PRs becuase the API doesn't separate them, the avg open issue time has been corrected for this.
+    <li>Top contributors are listed for maintenance reference, no relation to quality or size of commits
+    <li>RTD-latest: guesses that the docs are named in RTD using the package name, 'unknown', most likely means the RTD docs, if they exist, are not using the GitHub package name
+    </ul>
+    </p><br>
+    Last Updated: '''
+
+    page += ("{0:s} GMT<br><br> <div id='table_div'></div>\n</body></html>".format(strftime("%a, %d %b %Y %H:%M:%S", gmtime())))
+    html.write(page)
+    html.close()
+    print("Created {0:s}".format(outpage))
 
 
 def get_api_data(url=""):
@@ -903,8 +1178,11 @@ def get_repo_info(org="", limit=200, repos=None, pub_only=True,
     repo_data = []
     for r in repos:
         repdata = get_api_data(_repo_base.format(org, r))
-        repdata['organization'] = org
-        repo_data.append(repdata)
+        if repdata is not None:
+            repdata['organization'] = org
+            repo_data.append(repdata)
+        else:
+            print("No data returned for {0:s} {1:s}".format(org, r))
 
     # speed up the large querry
     for repo in repo_data:
@@ -987,8 +1265,8 @@ def check_for_tags(url=None, org=None, name=None):
     tags_data = get_api_data(url=tags_url)
 
     if tags_data:
-        # sort the tags by date to be nice
-        tags_data = _update_tags_with_commits(tags_data, sort_data=True, keyname='datetime')
+        # sort the tags by tag string
+        tags_data = _update_tags_with_commits(tags_data, sort_data=True, keyname='name')
 
     return tags_data
 
@@ -1060,7 +1338,7 @@ def check_for_release(url=None, org=None, name=None, latest=True):
             raise ValueError("Expected organziation name")
         if (name is None):
             raise ValueError("Expected repository name")
-        rel_url = _rel_url.format(org, name)
+        rel_url = _rel_url.format(org, name)  # this grabs latest release information
         if latest:
             rel_url += "/latest"
     else:
@@ -1215,6 +1493,40 @@ def scrape_rtd_badge(org=None, name=None):
                 return badge
 
     return badge  # Should be None
+
+
+def get_astropy_affiliated():
+    """Grab statistics on the astropy affiliated packages for quicklook."""
+
+    import repostats
+    import urllib.request
+    import json
+
+    # json descriptor file found here:
+    affiliated_registry = "http://www.astropy.org/affiliated/registry.json"
+
+    # basic descriptors for packages
+    descriptors = ["name", "description", "home_url", "maintainer",
+                   "provisional", "pypi_name", "repo_url", "stable"]
+
+    with urllib.request.urlopen(affiliated_registry) as url:
+        affiliated_packages = json.loads(url.read().decode())
+
+    # get information for all affiliated packages
+    package_data = []
+    for package in affiliated_packages['packages']:
+        name = package['name']
+        splitname = package['repo_url'].split("/")
+        org = splitname[-2]
+        reponame = splitname[-1]
+        pdata = repostats.get_repo_info(org=org, repos=[reponame], limit=1, pub_only=True)[0]
+        for extra in descriptors:
+            try:
+                pdata[extra] = package[extra]
+            except NameError:
+                pass
+        package_data.append(pdata)
+    return package_data
 
 
 if __name__ == "__main__":
