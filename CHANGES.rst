@@ -1,3 +1,5 @@
+- bugfix for release information
+- added subdirectory commits to get_statistics
 - updated bug in one of the base urls
 - fixed setup bug for egg expansion by adding zip_safe = False
 - fixed readme to conform to package name change and update example usage
