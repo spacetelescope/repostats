@@ -225,7 +225,7 @@ def _set_table_column_names(names=None):
     return names
 
 
-def make_summary_page(repo_data=None, columns=None, outpage=None):
+def make_summary_page(repo_data=None, outpage=None):
     """Make a summary HTML page from a list of repositories in the organization.
 
     Parameters
@@ -233,8 +233,6 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
     repo_data: list[dict{}]
         a list of dictionaries that contains information about each repository
         as created by get_repo_info()
-    columns: OrderedDict (optional)
-        a dictionary of the table column names and their google types
     outpage: string (optional)
         the name of the output html file
 
@@ -255,8 +253,7 @@ def make_summary_page(repo_data=None, columns=None, outpage=None):
     if outpage is None:
         outpage = "repository_summary.html"
 
-    if ((not isinstance(columns, OrderedDict)) or (columns is None)):
-        columns = _set_table_column_names()
+    columns = _set_table_column_names()
 
     # print to a web page we can display for ourselves,
     print("Checking for older html file before writing {0:s}".format(outpage))
@@ -491,8 +488,6 @@ def make_astropy_affiliated_summary_page(repo_data=None, outpage="affiliated_sum
     repo_data: list[dict{}]
         a list of dictionaries that contains information about each repository
         as created by get_repo_info()
-    columns: OrderedDict (optional)
-        a dictionary of the table column names and their google types
     outpage: string (optional)
         the name of the output html file
 
