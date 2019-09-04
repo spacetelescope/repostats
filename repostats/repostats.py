@@ -3,7 +3,8 @@ Library for gleaning information from GitHub through APIv3
 This tool currently requires the use of an OAuth token
 """
 
-from __future__ import print_function, division, absolute_import
+import logging
+import typing
 
 import os
 import json
@@ -20,6 +21,7 @@ from time import gmtime, strftime
 from collections import OrderedDict
 from getpass import getpass, GetPassWarning
 
+logger = logging.getLogger(__name__)
 
 # some base api urls for reference
 _orgrepo_base = "https://api.github.com/orgs/{0:s}/repos?per_page={1:d}&type={2:s}"
@@ -27,6 +29,8 @@ _repo_base = "https://api.github.com/repos/{0:s}/{1:s}"
 _rel_url = _repo_base + ("/releases")
 _tags_url = _repo_base + ("/tags")  # tags unordered
 _commit_url = _repo_base + ("/commits")  # all commits
+_clone_traffic = _repo_base + ("/traffic/clones") # count the amount of clones in the past two weeks
+_page_view_traffic = _repo_base + ("/traffic/views") # all traffic
 _contributors_url = _repo_base + ("/contributors?anon=true")  # contrib sorted by commit
 _open_pulls_url = _repo_base + ("/pulls?state=open")
 _all_issues_url = _repo_base + ("/issues?state=all&sort=created")
@@ -221,7 +225,9 @@ def _set_table_column_names(names=None):
                              ("Commits per month", "number"),
                              ("Forks", "number"),
                              ("Stars", "number"),
-                             ("License", "string")])
+                             ("License", "string"),
+                             ("Page Views", "number"),
+                             ("Git Clones", "number")])
     return names
 
 
@@ -256,7 +262,7 @@ def make_summary_page(repo_data=None, outpage=None):
     columns = _set_table_column_names()
 
     # print to a web page we can display for ourselves,
-    print("Checking for older html file before writing {0:s}".format(outpage))
+    logger.info("Checking for older html file before writing {0:s}".format(outpage))
     if os.access(outpage, os.F_OK):
         os.remove(outpage)
     html = open(outpage, 'w')
@@ -397,7 +403,8 @@ def make_summary_page(repo_data=None, outpage=None):
                         author_url = "http://github.com/{0:s}".format(author)
                     descrip = render_html(repo['tag_info'][-1]['commit_info']['commit']['message'])
 
-
+        page_views: int = repo['page_views']['count']
+        git_clones: int = repo['git_clones']['count']
         html_string = ("[\'<a href=\"{}\">{}</a>\',"
                        "\"{}\","
                        "\"{}\","
@@ -415,7 +422,7 @@ def make_summary_page(repo_data=None, outpage=None):
                        "\'<img src=\"{}\">\',\'<img src=\"{}\">\',"
                        "{},{},{},"
                        "{},{},{},{},"
-                       "{},{},\"{}\"],\n".format(url, software,
+                       "{},{},\"{}\",{},{}],\n".format(url, software,
                                            archived,
                                            astroconda_contrib,
                                            astroconda_dev,
@@ -432,7 +439,7 @@ def make_summary_page(repo_data=None, outpage=None):
                                            travis, rtd,
                                            open_issues, closed_last_week, closed_last_month,
                                            avg_issue_time, prs, commit_week, commit_month,
-                                           forks, stars, license))
+                                           forks, stars, license, page_views, git_clones))
         html.write(html_string)
 
     page = '''  ]);
@@ -459,7 +466,7 @@ def make_summary_page(repo_data=None, outpage=None):
     page += ("{0:s} GMT<br><br> <div id='table_div'></div>\n</body></html>".format(strftime("%a, %d %b %Y %H:%M:%S", gmtime())))
     html.write(page)
     html.close()
-    print("Created {0:s}".format(outpage))
+    logger.info("Created {0:s}".format(outpage))
 
 
 def render_html(md=""):
@@ -535,7 +542,7 @@ def make_astropy_affiliated_summary_page(repo_data=None, outpage="affiliated_sum
                            ("License", "string")])
 
     # sa ve a web page we can display for ourselves,
-    print("Checking for older html file before writing {0:s}".format(outpage))
+    logger.info("Checking for older html file before writing {0:s}".format(outpage))
     if os.access(outpage, os.F_OK):
         os.remove(outpage)
     html = open(outpage, 'w')
@@ -756,7 +763,7 @@ def make_astropy_affiliated_summary_page(repo_data=None, outpage="affiliated_sum
     page += ("{0:s} GMT<br><br> <div id='table_div'></div>\n</body></html>".format(strftime("%a, %d %b %Y %H:%M:%S", gmtime())))
     html.write(page)
     html.close()
-    print("Created {0:s}".format(outpage))
+    logger.info("Created {0:s}".format(outpage))
 
 
 def get_api_data(url=""):
@@ -794,8 +801,9 @@ def get_api_data(url=""):
     try:
         status = resp_header['status']
         if '200' not in status:
+            logger.warn(f'Status[{status}]. Url[{url}]')
             if '409 Conflict' in status:
-                print("Conflict, empty repository")
+                logger.error("Conflict, empty repository")
             return None
         else:
             data = json.loads(response.data.decode('iso-8859-1'))
@@ -812,8 +820,8 @@ def get_api_data(url=""):
             return data
     except KeyError:
         for k, v in resp_header:
-            print(k, v)
-        print(response)
+            logger.info(f'key[{k}] value[{v}]')
+        logger.info(response)
         return None
 
 
@@ -860,7 +868,7 @@ def get_statistics(org="", name="", subdirs=False):
         subdir_list = get_all_subdirs(org, repo=name)
         stats['subdir_commits'] = {}
         if subdir_list is None:
-            print("NO results returned for subdirs, skipping")
+            logger.info("NO results returned for subdirs, skipping")
         for item in subdir_list:
             stats['subdir_commits'][item] = check_for_commits(repo=name, org=org, latest=True, tree=item)
     return stats
@@ -949,8 +957,8 @@ def print_text_summary(stats=None):
 
     # print to screen
     if stats['all_issues']:
-        print("\nReport for {0:s}".format(': '.join(stats['all_issues'][0]['repository_url'].split("/")[-2:])))
-        print("Open issues: {:3}\n"
+        logger.info("\nReport for {0:s}".format(': '.join(stats['all_issues'][0]['repository_url'].split("/")[-2:])))
+        logger.info("Open issues: {:3}\n"
               "Closed issues this week: {:3}\n"
               "Closed issues this month: {:3}\n"
               "Commits in last week: {:3}\n"
@@ -959,21 +967,21 @@ def print_text_summary(stats=None):
                                                      closed_last_month,
                                                      last_week, last_month))
         if prs:
-            print("Open Pull Requests: {:3}\n".format(prs))
-            print("{:<7}{:<70}{:<22}{:22}".format("Number", "Title", "Created", "Last Updated"))
+            logger.info("Open Pull Requests: {:3}\n".format(prs))
+            logger.info("{:<7}{:<70}{:<22}{:22}".format("Number", "Title", "Created", "Last Updated"))
             for opr in stats['open_pulls']:
-                print("{:<7}{:<70}{:<22}{:22}".format(opr['number'], opr['title'],
+                logger.info("{:<7}{:<70}{:<22}{:22}".format(opr['number'], opr['title'],
                                                       opr['created_at'], opr['updated_at']))
         else:
-            print("No open pull requests")
+            logger.info("No open pull requests")
     else:
-        print("No stats available")
+        logger.info("No stats available")
 
     if 'subdir_commits' in stats.keys():
-        print("\nMost recent commit in each subpackage\n")
+        logger.info("\nMost recent commit in each subpackage\n")
         for item in stats['subdir_commits'].keys():
             ik = stats['subdir_commits'][item]
-            print("{:<25}<--{:<25}{:<25}:{:<25}{:<25}\n{:s}\n\n".format(item,
+            logger.info("{:<25}<--{:<25}{:<25}:{:<25}{:<25}\n{:s}\n\n".format(item,
                                                        ik['commit']['author']['name'],
                                                        ik['commit']['author']['date'],
                                                        ik['commit']['committer']['name'],
@@ -1062,7 +1070,7 @@ def get_all_subdirs(org=None, repo=None, pub_only=True):
         rtype = "all"  # public and private
     limit = 1
 
-    print("Getting list of all subpackages in {0:s} : {1:s} ...".format(org, repo))
+    logger.info("Getting list of all subpackages in {0:s} : {1:s} ...".format(org, repo))
     url = _repo_contents_url.format(org, repo)
     results = get_api_data(url=url)
     if results is None:
@@ -1076,7 +1084,7 @@ def get_all_subdirs(org=None, repo=None, pub_only=True):
     if tree_url:
         results = get_api_data(url=tree_url)
         if results is None:
-            print("No subdirectory results")
+            logger.info("No subdirectory results")
         for item in results['tree']:
             if item['type'] == 'tree':
                 subdirs.append(item['path'])
@@ -1106,7 +1114,7 @@ def get_all_repositories(org="", limit=10, pub_only=True):
     if limit > 100:
         limit = 100  # max supported
 
-    print("Getting list of {0:s} repos for {1:s}...".format(rtype, org))
+    logger.info("Getting list of {0:s} repos for {1:s}...".format(rtype, org))
     url = _orgrepo_base.format(org, limit, rtype)
     results = get_api_data(url=url)
     if results is None:
@@ -1160,14 +1168,15 @@ def get_repo_info(org="", limit=200, repos=None, pub_only=True,
 
     # Get a list of the repositories
     if limit > 100:
-        limit = 100  # max allowed
+        raise AttributeError(f'Max limit[{limit}] allowed is 100')
+
     if (repos is None):
         repos = get_all_repositories(org, limit=limit, pub_only=pub_only)
     else:
         if not isinstance(repos, list):
             raise TypeError("Expected repos to be list")
 
-    print("Found {0} repositories".format(len(repos)))
+    logger.info(f'Found {len(repos)} repositories')
 
     # get summary information for each repo
     repo_data = []
@@ -1177,11 +1186,11 @@ def get_repo_info(org="", limit=200, repos=None, pub_only=True,
             repdata['organization'] = org
             repo_data.append(repdata)
         else:
-            print("No data returned for {0:s} {1:s}".format(org, r))
+            logger.info("No data returned for {0:s} {1:s}".format(org, r))
 
     # speed up the large querry
     for repo in repo_data:
-        print(repo['name'])
+        logger.info(repo['name'])
         _querry_for_info(org, repo)
 
     if astroconda:
@@ -1210,12 +1219,49 @@ def _querry_for_info(org=None, repo=None):
     """
     if org is None:
         raise ValueError("Need name of organization")
+
+    logger.info(f'Extracting metrics for Repo[{repo["name"]}].')
     repo['release_info'] = check_for_release(org=org, name=repo['name'], latest=True)
     repo['tag_info'] = check_for_tags(org=org, name=repo['name'])
     repo['commit_info'] = check_for_commits(org=org, repo=repo['name'], latest=True)
     repo['statistics'] = get_statistics(org=org, name=repo['name'])
     repo['contributors'] = get_contributors(org=org, name=repo['name'])
+    repo['page_views'] = get_page_views(org=org, name=repo['name'])
+    repo['git_clones'] = get_clones(org=org, name=repo['name'])
 
+
+def get_page_views(org=None, name=None) -> typing.Dict[str, typing.Any]:
+    """return object with counts for page-views over the past two weeks
+    
+    Parameters
+    ----------
+    org: string
+        The name of the organization
+    name: string
+        The name of the repository
+
+    Returns
+    -------
+    Page-view counts
+    """
+    url = _page_view_traffic.format(org, name)
+    return get_api_data(url)
+
+def get_clones(org=None, name=None) -> typing.Dict[str, typing.Any]:
+    """return object with counts for git-clones over the past two weeks
+    Parameters
+    ----------
+    org: string
+        The name of the organization
+    name: string
+        The name of the repository
+
+    Returns
+    -------
+    Git-Clone counts 
+    """
+    url = _clone_traffic.format(org, name)
+    return get_api_data(url)
 
 def get_contributors(org=None, name=None):
     """return the list of contributors in descending order.
@@ -1382,7 +1428,7 @@ def _update_tags_with_commits(tags_data=None, sort_data=False, keyname='datetime
         tag['datetime'] = parser.parse(tag['date'])
 
         if print_summary:
-            print(tag['name'], tag['date'])
+            logger.info(tag['name'], tag['date'])
 
     if sort_data:
         if keyname not in tags_data[0].keys():
@@ -1530,10 +1576,10 @@ if __name__ == "__main__":
     org = 'spacetelescope'
     name = 'asdf'
     stats = get_statistics(org=org, name=name)
-    print("Example of a basic report:\n")
+    logger.info("Example of a basic report:\n")
     print_text_summary(stats)
 
-    print("\nNow creating a basic html summary page:\n")
+    logger.info("\nNow creating a basic html summary page:\n")
     repos = [name, 'synphot_refactor', 'asdf', 'stginga']
     repo_data = get_repo_info(
         org=org, repos=repos, pub_only=True, astroconda=True)

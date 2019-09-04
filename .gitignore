@@ -103,3 +103,5 @@ ENV/
 # Generated files
 .repostats-key
 repository_summary.html
+*.swp
+spacetelescope.html

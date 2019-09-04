@@ -103,6 +103,9 @@ setup(
     license=LICENSE,
     zip_safe=False,
     url=URL,
+    scripts=[
+        'bin/build-stats.py',
+    ],
     classifiers=[
         'Intended Audience :: Science/Research',
         'License :: OSI Approved :: BSD License',
