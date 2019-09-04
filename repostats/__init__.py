@@ -1,2 +1,1 @@
-from .version import *
-from .repostats import *
+from repostats.repostats import *
