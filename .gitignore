@@ -103,3 +103,4 @@ ENV/
 # Generated files
 .repostats-key
 repository_summary.html
+.DS_Store
