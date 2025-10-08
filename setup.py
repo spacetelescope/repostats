@@ -18,7 +18,6 @@ metadata = dict(conf.items('metadata'))
 PACKAGENAME = metadata.get('package_name', 'repostats')
 DESCRIPTION = metadata.get('description', 'Generage statistics for GitHub organizations')
 AUTHOR = metadata.get('author', 'STScI')
-AUTHOR_EMAIL = metadata.get('author_email', 'help@stsci.edu')
 URL = metadata.get('url', 'https://www.stsci.edu/')
 LICENSE = metadata.get('license', 'BSD')
 
@@ -98,7 +97,6 @@ setup(
     name=PACKAGENAME,
     version=version.pep386,
     author=AUTHOR,
-    author_email=AUTHOR_EMAIL,
     description=DESCRIPTION,
     license=LICENSE,
     zip_safe=False,
